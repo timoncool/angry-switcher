@@ -1,0 +1,18 @@
+{
+  "name": "prompt-layer",
+  "owner": { "name": "timoncool", "url": "https://github.com/timoncool" },
+  "metadata": {
+    "description": "Prompt Layer: an invisible layer that cleans and sharpens every prompt you send to Claude Code."
+  },
+  "plugins": [
+    {
+      "name": "prompt-layer",
+      "source": "./plugins/prompt-layer",
+      "description": "Rewrites each prompt with a small Haiku call before Claude reads it: typos, translit, wrong keyboard layout, swearing and CAPS cleaned, the goal stated first, details kept verbatim. Logs its own cost and A/B data.",
+      "version": "0.1.0",
+      "author": { "name": "timoncool" },
+      "category": "productivity",
+      "keywords": ["prompting", "prompt-engineering", "rewrite", "haiku", "ab-test"]
+    }
+  ]
+}
