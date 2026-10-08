@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 — 2026-10-09
+
+- The layer calls `claude-haiku-5-5` by its exact id instead of the `haiku` alias, which maps to Haiku 4.5 on Bedrock, Vertex and Foundry.
+
 ## 0.2.0 — 2026-10-09
 
 - Tested on 40 real prompts with `/layer replay`; fixed what it showed:
