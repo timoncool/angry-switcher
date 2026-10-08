@@ -55,6 +55,7 @@ Or by hand:
 | `/layer report` | A/B comparison |
 | `/layer cost` | what the layer spent: tokens, dollars, share of the session, limit windows |
 | `/layer export` | the log as JSONL |
+| `/layer replay <file>` | test room: run prompts from a JSONL file through the layer without sending anything |
 | `raw:` at the start | send the message exactly as typed |
 
 ## How it works

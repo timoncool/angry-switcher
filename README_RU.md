@@ -55,6 +55,7 @@ Install the Claude Code plugin Prompt Layer from https://github.com/timoncool/pr
 | `/layer report` | сравнение A/B |
 | `/layer cost` | сколько потратил слой: токены, деньги, доля в сессии, лимиты |
 | `/layer export` | лог в JSONL |
+| `/layer replay <файл>` | тестовая комната: прогнать промпты из JSONL через слой, ничего не отправляя |
 | `raw:` в начале | отправить ровно как написано |
 
 ## Как это работает

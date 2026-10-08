@@ -1,8 +1,9 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Arm, Card, Entry, Example, Genre, Verdict } from '../types'
+import type { Arm, Card, Entry, Example, Verdict } from '../types'
 import { genreOf, isClearEnough, missingTokens, noise, shield, unshield } from './detect'
+import type { Shielded } from './detect'
 import { buildSystem, parseReply, pickExamples, recentContext } from './rules'
 
 export { genreOf, isClearEnough, missingTokens, noise, parseReply, buildSystem, pickExamples, recentContext, shield, unshield }
@@ -15,7 +16,7 @@ const MIN_WORDS = 5
 const MAX_CHARS = 2500
 const MAX_LOG = 500
 const MAX_EXAMPLES = 30
-const DEFAULT_MODEL = 'claude-haiku-5-5'
+const DEFAULT_MODEL = 'haiku'
 const TIMEOUT_MS = 8_000
 const MAX_TOKENS = 4000
 const BREAKER_FAILS = 3
@@ -141,6 +142,7 @@ const HELP = [
   '/layer report           сравнение A/B',
   '/layer cost             сколько слой потратил: токены, деньги по /cost, доля в сессии, лимиты подписки',
   '/layer export           выгрузить лог в JSONL в папку плагина',
+  '/layer replay <файл>    тестовая комната: прогнать промпты из JSONL через слой, ничего не отправляя',
   'raw: в начале — отправить как есть',
 ].join('\n')
 
@@ -177,6 +179,28 @@ async function sessionId($: EngineInterface) {
     return await $.session.id()
   } catch {
     return ''
+  }
+}
+
+type Asked = { result: Layered; usage: Entry['usage'] }
+
+async function rewrite($: EngineInterface, typed: string, own: Shielded, convo: string, english: boolean): Promise<Asked> {
+  const genre = genreOf(own.text)
+  const examples = pickExamples(await get<Example[]>($, 'examples', []), genre)
+  const system = buildSystem({ style: await get($, 'style', ''), examples, genre, english, replyIn: replyLanguage(own.text) })
+  try {
+    const r = await $.model.complete({
+      model: await get($, 'model', DEFAULT_MODEL),
+      system: [{ text: system, cache: true }],
+      prompt: [convo && `<recent_conversation>\n${convo}\n</recent_conversation>`, `<prompt>\n${own.text}\n</prompt>`].filter(Boolean).join('\n\n'),
+      maxTokens: MAX_TOKENS,
+      effort: 'low',
+      timeoutMs: TIMEOUT_MS,
+    })
+    const usage = { input: r.usage.input_tokens, output: r.usage.output_tokens, cacheRead: r.usage.cache_read_input_tokens, cacheWrite: r.usage.cache_creation_input_tokens }
+    return { result: decide(typed, own.blocks, r.isAnswered ? { ok: true, text: r.text } : { ok: false, reason: r.reason }), usage }
+  } catch (err) {
+    return { result: decide(typed, own.blocks, { ok: false, reason: String(err) }), usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }
   }
 }
 
@@ -236,6 +260,22 @@ export const register: Register = on => {
       }
       return { text: examples.length ? examples.map((x, i) => `${i + 1}. [${x.genre}] ${clip(norm(x.typed), 80)}\n   -> ${clip(norm(x.sent), 120)}`).join('\n') : 'Образцов нет: /layer good или /layer fix <текст>.' }
     }
+    if (sub === 'replay') {
+      if (!tail) return { text: 'Укажи файл: /layer replay <путь к JSONL с полями typed и context>' }
+      const items = (await $.fs.read(tail)).split('\n').filter(l => l.trim()).map(l => JSON.parse(l) as { typed: string; context?: string })
+      const out: string[] = []
+      for (const [i, it] of items.entries()) {
+        $.ui.status(`Prompt Layer: replay ${i + 1}/${items.length}`)
+        const own = shield(it.typed)
+        const t0 = await $.clock.now()
+        const { result, usage } = await rewrite($, it.typed, own, it.context ?? '', (await get($, 'lang', 'keep')) === 'en')
+        out.push(JSON.stringify({ ...it, noise: noise(own.text), genre: genreOf(own.text), ...result, ms: (await $.clock.now()) - t0, usage }))
+      }
+      $.ui.status(undefined)
+      const path = `${tail.replace(/\.jsonl$/, '')}.out.jsonl`
+      await $.fs.write(path, out.join('\n') + '\n')
+      return { text: `[OK] ${items.length} промптов прогнано, ничего не отправлено: ${path}` }
+    }
     if (sub === 'report') return { text: report(log) }
     if (sub === 'cost') {
       const u = await $.session.usage()
@@ -284,32 +324,17 @@ export const register: Register = on => {
     const lang = await get<'keep' | 'en'>($, 'lang', 'keep')
     const coin = Math.random() < 0.5
     const arm: Arm = ab === 'raw' ? (coin ? 'raw' : 'layer') : ab === 'en' ? (coin ? 'en' : 'layer') : lang === 'en' ? 'en' : 'layer'
-    const genre: Genre = genreOf(own.text)
-    const examples = pickExamples(await get<Example[]>($, 'examples', []), genre)
-    const system = buildSystem({ style: await get($, 'style', ''), examples, genre, english: arm === 'en', replyIn: replyLanguage(own.text) })
-
-    let result: Layered
-    let usage: Entry['usage'] = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+    const genre = genreOf(own.text)
     const alone = e.turnId === undefined
     const ledgerBefore = alone ? await ledger($) : null
     $.ui.status('Prompt Layer: переписываю…')
+    let asked: Asked
     try {
-      const convo = await conversation($)
-      const r = await $.model.complete({
-        model: await get($, 'model', DEFAULT_MODEL),
-        system: [{ text: system, cache: true }],
-        prompt: [convo && `<recent_conversation>\n${convo}\n</recent_conversation>`, `<prompt>\n${own.text}\n</prompt>`].filter(Boolean).join('\n\n'),
-        maxTokens: MAX_TOKENS,
-        effort: 'low',
-        timeoutMs: TIMEOUT_MS,
-      })
-      usage = { input: r.usage.input_tokens, output: r.usage.output_tokens, cacheRead: r.usage.cache_read_input_tokens, cacheWrite: r.usage.cache_creation_input_tokens }
-      result = decide(typed, own.blocks, r.isAnswered ? { ok: true, text: r.text } : { ok: false, reason: r.reason })
-    } catch (err) {
-      result = decide(typed, own.blocks, { ok: false, reason: String(err) })
+      asked = await rewrite($, typed, own, await conversation($), arm === 'en')
     } finally {
       $.ui.status(undefined)
     }
+    const { result, usage } = asked
 
     const done = await $.clock.now()
     const ledgerAfter = alone ? await ledger($) : null
