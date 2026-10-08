@@ -1,6 +1,6 @@
 {
   "name": "prompt-layer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Invisible layer between you and Claude: rewrites each prompt into a sharper one with Haiku, turns swearing and CAPS into a calm, precise instruction, learns your style and logs A/B data.",
   "author": { "name": "timoncool", "url": "https://github.com/timoncool" },
   "license": "MIT",

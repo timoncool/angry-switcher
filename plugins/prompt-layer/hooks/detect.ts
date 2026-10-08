@@ -18,7 +18,7 @@ const FREQUENT_RU = new Set([
   'что', 'как', 'это', 'надо', 'нужно', 'сделай', 'почини', 'исправь', 'поправь', 'почему', 'зачем', 'когда', 'где', 'давай',
   'нет', 'да', 'ещё', 'еще', 'все', 'всё', 'только', 'если', 'или', 'тоже', 'теперь', 'опять', 'снова', 'файл', 'тест', 'тесты',
   'запусти', 'проверь', 'откати', 'верни', 'убери', 'добавь', 'удали', 'найди', 'покажи', 'работает', 'ошибка', 'привет',
-  'спасибо', 'пожалуйста', 'сейчас', 'потом', 'быстро', 'нормально', 'сделать', 'код', 'проект', 'не', 'ты', 'мне', 'там', 'тут',
+  'спасибо', 'пожалуйста', 'сейчас', 'щас', 'ну', 'так', 'вот', 'же', 'бы', 'уже', 'мы', 'вы', 'он', 'она', 'они', 'кто', 'чем', 'на', 'потом', 'быстро', 'нормально', 'сделать', 'код', 'проект', 'не', 'ты', 'мне', 'там', 'тут',
 ])
 const TRANSLIT_RU = new Set([
   'chto', 'shto', 'kak', 'eto', 'nado', 'nuzhno', 'sdelay', 'sdelai', 'pochini', 'ispravi', 'isprav', 'poprav', 'popravi',
@@ -37,12 +37,26 @@ const LETTER_WORD = /[A-Za-zА-Яа-яЁё]{3,}/g
 const LATIN_ACRONYM = /^[A-Z]{2,4}$/
 const isCaps = (w: string) => w === w.toUpperCase() && w !== w.toLowerCase()
 
+const ENGLISH_STOP = new Set(['the', 'a', 'an', 'to', 'is', 'are', 'and', 'or', 'of', 'in', 'on', 'it', 'you', 'for', 'with', 'this', 'that', 'be', 'not', 'do', 'what', 'how', 'why', 'can', 'i', 'my', 'me', 'we', 'so', 'if', 'but', 'no', 'yes', 'just', 'all', 'from', 'at', 'as', 'by', 'have', 'has', 'was', 'please', 'fix', 'add', 'make', 'run', 'test', 'file', 'code'])
+
+export function decodeLayout(text: string): string {
+  return [...text].map(ch => {
+    const low = ch.toLowerCase()
+    const mapped = LAYOUT[low]
+    if (!mapped) return ch
+    return ch !== low ? mapped.toUpperCase() : mapped
+  }).join('')
+}
+
 export function wrongLayout(text: string): boolean {
   if (/[а-яё]/i.test(text)) return false
   const words = text.toLowerCase().split(/\s+/).filter(w => /^[a-z;'[\],.`]{2,}$/.test(w))
   if (!words.length) return false
-  const hits = words.filter(w => FREQUENT_RU.has([...w].map(ch => LAYOUT[ch] ?? ch).join('').replace(/[б,ю.]$/, m => (w.length > 2 ? '' : m)))).length
-  return hits >= 2 || (words.length <= 2 && hits >= 1)
+  const english = words.filter(w => ENGLISH_STOP.has(w.replace(/[^a-z]/g, ''))).length
+  if (english / words.length >= 0.15) return false
+  const hits = words.filter(w => FREQUENT_RU.has(decodeLayout(w).replace(/[б,ю.]$/, m => (w.length > 2 ? '' : m)))).length
+  const glued = words.filter(w => /[a-z][[\];',.`][a-z]/.test(w)).length
+  return hits + glued >= 2 || (words.length <= 2 && hits + glued >= 1)
 }
 
 export function translit(text: string): boolean {
@@ -98,6 +112,10 @@ export function protectedTokens(text: string): string[] {
 
 export function missingTokens(original: string, rewritten: string): string[] {
   return protectedTokens(original).filter(t => !rewritten.includes(t))
+}
+
+export function addedTokens(original: string, rewritten: string): string[] {
+  return protectedTokens(rewritten).filter(t => /[\\/._@#\d]|[a-z][A-Z]/.test(t) && !original.includes(t))
 }
 
 const ANCHOR = [

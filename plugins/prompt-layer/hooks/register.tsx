@@ -2,11 +2,11 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Arm, Card, Entry, Example, Verdict } from '../types'
-import { genreOf, isClearEnough, missingTokens, noise, shield, unshield } from './detect'
+import { addedTokens, decodeLayout, genreOf, isClearEnough, missingTokens, noise, shield, unshield, wrongLayout } from './detect'
 import type { Shielded } from './detect'
-import { buildSystem, parseReply, pickExamples, recentContext } from './rules'
+import { buildSystem, parseReply, pickExamples } from './rules'
 
-export { genreOf, isClearEnough, missingTokens, noise, parseReply, buildSystem, pickExamples, recentContext, shield, unshield }
+export { addedTokens, decodeLayout, genreOf, isClearEnough, missingTokens, noise, parseReply, buildSystem, pickExamples, shield, unshield, wrongLayout }
 
 const cardsA = atom({ plugin: 'prompt-layer', key: 'cards' } as const, [])
 const openA = atom({ plugin: 'prompt-layer', key: 'open' } as const, null)
@@ -38,7 +38,7 @@ export type Layered = { verdict: Verdict; sent: string; layered: string | null; 
  * What goes out, given Haiku's reply or why there was none: a rewrite only when it is well formed,
  * puts every shielded block back exactly once and lost no protected detail.
  */
-export function decide(typed: string, blocks: readonly string[], reply: { ok: true; text: string } | { ok: false; reason: string }): Layered {
+export function decide(typed: string, blocks: readonly string[], reply: { ok: true; text: string } | { ok: false; reason: string }, reference = typed): Layered {
   if (!reply.ok) return { verdict: 'failed', sent: typed, layered: null, note: `Haiku не ответил (${reply.reason}); ушло как написано.` }
   const out = parseReply(reply.text)
   if (out.kind !== 'rewrite') {
@@ -50,6 +50,8 @@ export function decide(typed: string, blocks: readonly string[], reply: { ok: tr
   if (restored === null) return { verdict: 'guard', sent: typed, layered: out.text, note: 'переписывание потеряло код или вставленный текст; ушло как написано.' }
   const missing = missingTokens(typed, restored)
   if (missing.length) return { verdict: 'guard', sent: typed, layered: restored, note: `переписывание потеряло ${missing.slice(0, 3).join(', ')}; ушло как написано.` }
+  const added = addedTokens(reference, restored)
+  if (added.length) return { verdict: 'guard', sent: typed, layered: restored, note: `переписывание добавило ${added.slice(0, 3).join(', ')}, которых не было; ушло как написано.` }
   return { verdict: 'rewrite', sent: restored, layered: restored, note: null }
 }
 
@@ -165,14 +167,6 @@ async function patchEntry($: EngineInterface, id: string, patch: (e: Entry) => E
   await $.store.set('log', next)
 }
 
-async function conversation($: EngineInterface) {
-  try {
-    return recentContext(await $.session.messages())
-  } catch (err) {
-    $.ui.toast(`Prompt Layer: переписываю без контекста разговора (${String(err)})`)
-    return ''
-  }
-}
 
 async function sessionId($: EngineInterface) {
   try {
@@ -184,21 +178,22 @@ async function sessionId($: EngineInterface) {
 
 type Asked = { result: Layered; usage: Entry['usage'] }
 
-async function rewrite($: EngineInterface, typed: string, own: Shielded, convo: string, english: boolean): Promise<Asked> {
+async function rewrite($: EngineInterface, typed: string, own: Shielded, english: boolean): Promise<Asked> {
   const genre = genreOf(own.text)
   const examples = pickExamples(await get<Example[]>($, 'examples', []), genre)
-  const system = buildSystem({ style: await get($, 'style', ''), examples, genre, english, replyIn: replyLanguage(own.text) })
+  const decoded = wrongLayout(own.text) ? decodeLayout(own.text) : null
+  const system = buildSystem({ style: await get($, 'style', ''), examples, genre, english, replyIn: replyLanguage(decoded ?? own.text) })
   try {
     const r = await $.model.complete({
       model: await get($, 'model', DEFAULT_MODEL),
       system: [{ text: system, cache: true }],
-      prompt: [convo && `<recent_conversation>\n${convo}\n</recent_conversation>`, `<prompt>\n${own.text}\n</prompt>`].filter(Boolean).join('\n\n'),
+      prompt: [`<prompt>\n${own.text}\n</prompt>`, decoded && `<decoded_layout>\n${decoded}\n</decoded_layout>`].filter(Boolean).join('\n\n'),
       maxTokens: MAX_TOKENS,
       effort: 'low',
       timeoutMs: TIMEOUT_MS,
     })
     const usage = { input: r.usage.input_tokens, output: r.usage.output_tokens, cacheRead: r.usage.cache_read_input_tokens, cacheWrite: r.usage.cache_creation_input_tokens }
-    return { result: decide(typed, own.blocks, r.isAnswered ? { ok: true, text: r.text } : { ok: false, reason: r.reason }), usage }
+    return { result: decide(typed, own.blocks, r.isAnswered ? { ok: true, text: r.text } : { ok: false, reason: r.reason }, decoded ? `${typed}\n${decoded}` : typed), usage }
   } catch (err) {
     return { result: decide(typed, own.blocks, { ok: false, reason: String(err) }), usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }
   }
@@ -262,13 +257,13 @@ export const register: Register = on => {
     }
     if (sub === 'replay') {
       if (!tail) return { text: 'Укажи файл: /layer replay <путь к JSONL с полями typed и context>' }
-      const items = (await $.fs.read(tail)).split('\n').filter(l => l.trim()).map(l => JSON.parse(l) as { typed: string; context?: string })
+      const items = (await $.fs.read(tail)).split('\n').filter(l => l.trim()).map(l => JSON.parse(l) as { typed: string })
       const out: string[] = []
       for (const [i, it] of items.entries()) {
         $.ui.status(`Prompt Layer: replay ${i + 1}/${items.length}`)
         const own = shield(it.typed)
         const t0 = await $.clock.now()
-        const { result, usage } = await rewrite($, it.typed, own, it.context ?? '', (await get($, 'lang', 'keep')) === 'en')
+        const { result, usage } = await rewrite($, it.typed, own, (await get($, 'lang', 'keep')) === 'en')
         out.push(JSON.stringify({ ...it, noise: noise(own.text), genre: genreOf(own.text), ...result, ms: (await $.clock.now()) - t0, usage }))
       }
       $.ui.status(undefined)
@@ -330,7 +325,7 @@ export const register: Register = on => {
     $.ui.status('Prompt Layer: переписываю…')
     let asked: Asked
     try {
-      asked = await rewrite($, typed, own, await conversation($), arm === 'en')
+      asked = await rewrite($, typed, own, arm === 'en')
     } finally {
       $.ui.status(undefined)
     }

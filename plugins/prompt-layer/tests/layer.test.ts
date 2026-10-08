@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 
 import type { On } from 'claude-code'
 
-import { buildSystem, costReport, decide, genreOf, missingTokens, noise, parseReply, pickExamples, report, shield, unshield, wantsLayer } from '../hooks/register'
+import { addedTokens, buildSystem, costReport, decide, decodeLayout, genreOf, missingTokens, noise, parseReply, pickExamples, report, shield, unshield, wantsLayer, wrongLayout } from '../hooks/register'
 import type { Entry, Example } from '../types'
 
 const usage = { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
@@ -35,6 +35,29 @@ describe('noise', () => {
     expect(noise('купи мандарины и сделай даунгрейд пакета')).toEqual([])
     expect(noise('хлеб, небо, потребитель, сукно')).toEqual([])
     expect(noise('make the dashboard load faster')).toEqual([])
+  })
+})
+
+describe('wrong keyboard layout', () => {
+  test('is detected and decoded, caps included', async () => {
+    const lower = 'rfrjuj e[z e nt,z d gjcnt yf gbrf,e lfyyus[ ,kzlm vtymti xtv d ntktut'
+    const upper = 'NS ,KLZM BCRFK [ETUJ LJKT,J'
+    expect(wrongLayout(lower)).toBe(true)
+    expect(wrongLayout(upper)).toBe(true)
+    expect(decodeLayout(lower)).toBe('какого ухя у тебя в посте на пикабу даннгых блядь меньеш чем в телеге')
+    expect(decodeLayout(upper)).toBe('ТЫ бЛДЯЬ ИСКАЛ хУЕГО ДОЛЕбО')
+    expect(wrongLayout('ye fnr drkx,b tgnf')).toBe(true)
+    expect(decodeLayout('f z rkb yt gjkmpe.cm')).toBe('а я кли не пользуюсь')
+    expect(wrongLayout("don't break the build, it's the release")).toBe(false)
+    expect(wrongLayout('make the dashboard load faster')).toBe(false)
+  })
+})
+
+describe('addedTokens', () => {
+  test('a rewrite may not invent paths, files, numbers or identifiers', async () => {
+    expect(addedTokens('ну прочитай справку', 'Прочитай файлы в D:\\Projects\\zavtra.io\\ сейчас.')).toEqual(['D:\\Projects\\zavtra.io'])
+    expect(addedTokens('исправляй', 'Исправь SOFT_404 в src/app/blog.')).toEqual(['src/app/blog', 'SOFT_404'])
+    expect(addedTokens('почему падает', 'Почему падает «сборка»?')).toEqual([])
   })
 })
 
@@ -91,6 +114,7 @@ describe('decide', () => {
     expect(decide(typed, [], { ok: false, reason: 'api-error' })).toMatchObject({ verdict: 'failed', sent: typed })
     expect(decide(typed, [], ok('nonsense'))).toMatchObject({ verdict: 'malformed', sent: typed })
     expect(decide(typed, [], ok('<unchanged/>'))).toEqual({ verdict: 'unchanged', sent: typed, layered: null, note: null })
+    expect(decide('исправляй', [], ok('<rewritten>Исправь SOFT_404 в src/app/blog.</rewritten>'))).toMatchObject({ verdict: 'guard', sent: 'исправляй' })
   })
   test('a rewrite that drops a shielded block is not sent', async () => {
     const typed = 'почини\n```\nx()\n```'
@@ -202,6 +226,19 @@ test('pasted text and code reach Haiku as placeholders and the session unchanged
   expect(asked).toContain('⟦1⟧')
   expect(asked).not.toContain('TypeError')
   expect(seen).toBe(`Найди причину ошибки из лога:\n${paste}`)
+})
+
+test('wrong-layout text reaches Haiku decoded', async ($, on) => {
+  let asked = ''
+  let seen = ''
+  mock.store(on)
+  mock.clock(on)
+  mockSession(on)
+  on('model.complete', (_$, e) => { asked = e.prompt; return rewritten('Почему в посте на Пикабу меньше данных, чем в Телеграме?')() })
+  on('prompt.submit', (_$, e) => { seen = e.text; return { text: e.text } })
+  await $.prompt.submit(submit('gjxtve d gjcnt yf gbrf,e vtymit lfyys[ xtv d ntktut'))
+  expect(asked).toContain('<decoded_layout>\nпочему в посте на пикабу меньше данных чем в телеге\n</decoded_layout>')
+  expect(seen).toBe('Почему в посте на Пикабу меньше данных, чем в Телеграме?')
 })
 
 test('a rewrite that loses a path goes out as typed', async ($, on) => {
