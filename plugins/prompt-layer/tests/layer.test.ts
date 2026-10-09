@@ -286,6 +286,20 @@ test('the log names the model each call asked for', async ($, on) => {
   expect((store.get('log') as Entry[]).map(e => e.model)).toEqual(['claude-sonnet-5-5', 'claude-haiku-5-5'])
 })
 
+test('the replay tool rewrites a file of prompts and writes the results beside it', async ($, on) => {
+  let wrote = { path: '', text: '' }
+  mock.store(on)
+  mock.clock(on)
+  mockSession(on)
+  on('fs.read', () => ({ value: '{"typed":"ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ"}\n{"typed":"ну так запускай чего ждёшь дебил"}\n' }) as never)
+  on('fs.write', (_$, e) => { wrote = { path: e.path, text: e.text }; return { value: undefined } as never })
+  on('model.complete', rewritten('Откати последнее действие.'))
+  const r = await $.tool.call({ tool: 'mcp__prompt-layer__replay', path: 'D:/room/set.jsonl' } as never)
+  expect(String(r.result)).toContain('[OK] 2 промптов прогнано')
+  expect(wrote.path.replace(/\\/g, '/')).toBe('D:/room/set.out.jsonl')
+  expect(wrote.text.trim().split('\n').map(l => JSON.parse(l).sent)).toEqual(['Откати последнее действие.', 'Откати последнее действие.'])
+})
+
 test('three failures in a row pause the layer', async ($, on) => {
   let calls = 0
   mock.store(on)

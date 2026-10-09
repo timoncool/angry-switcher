@@ -144,7 +144,7 @@ const HELP = [
   '/layer report           сравнение A/B',
   '/layer cost             сколько слой потратил: токены, деньги по /cost, доля в сессии, лимиты подписки',
   '/layer export           выгрузить лог в JSONL в папку плагина',
-  '/layer replay <файл>    тестовая комната: прогнать промпты из JSONL через слой, ничего не отправляя',
+  '/layer replay <файл>    тестовая комната: прогнать промпты из JSONL через слой, ничего не отправляя (то же умеет инструмент replay для модели)',
   'raw: в начале — отправить как есть',
 ].join('\n')
 
@@ -200,6 +200,23 @@ async function rewrite($: EngineInterface, typed: string, own: Shielded, english
   }
 }
 
+/** The test room: every prompt of a JSONL file through the layer, one call each, nothing sent; results beside the file. */
+async function replay($: EngineInterface, file: string): Promise<string> {
+  const items = (await $.fs.read(file)).split('\n').filter(l => l.trim()).map(l => JSON.parse(l) as { typed: string })
+  const out: string[] = []
+  for (const [i, it] of items.entries()) {
+    $.ui.status(`Prompt Layer: replay ${i + 1}/${items.length}`)
+    const own = shield(it.typed)
+    const t0 = await $.clock.now()
+    const { result, usage, model } = await rewrite($, it.typed, own, (await get($, 'lang', 'keep')) === 'en')
+    out.push(JSON.stringify({ ...it, noise: noise(own.text), genre: genreOf(own.text), ...result, ms: (await $.clock.now()) - t0, model, usage }))
+  }
+  $.ui.status(undefined)
+  const path = `${file.replace(/\.jsonl$/, '')}.out.jsonl`
+  await $.fs.write(path, out.join('\n') + '\n')
+  return `[OK] ${items.length} промптов прогнано, ничего не отправлено: ${path}`
+}
+
 const norm = (s: string) => s.trim().replace(/\s+/g, ' ')
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 const replyLanguage = (text: string) => (/[а-яё]/i.test(text) ? 'Russian' : 'the language of the conversation')
@@ -210,7 +227,18 @@ export const register: Register = on => {
 
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'layer', description: 'Prompt Layer: /layer help, команды невидимого слоя' })
+    await $.tool.register({
+      name: 'replay',
+      description: 'Prompt Layer test room: rewrites every prompt of a JSONL file (one object per line with a "typed" field) through the layer with its current rules and model, one call per prompt, sends nothing, and writes the results to <file>.out.jsonl.',
+      inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'Absolute path of the JSONL file' } }, required: ['path'] },
+    })
     return next(e)
+  })
+
+  on('tool.call', { tool: 'mcp__prompt-layer__replay' }, async ($, e) => {
+    const path = (e as { path?: unknown }).path
+    if (typeof path !== 'string' || !path.trim()) return { deny: 'path: absolute path of a JSONL file with a "typed" field per line' }
+    return { result: await replay($, path.trim()) }
   })
 
   on('command.run', { command: 'layer' }, async ($, e) => {
@@ -257,20 +285,8 @@ export const register: Register = on => {
       return { text: examples.length ? examples.map((x, i) => `${i + 1}. [${x.genre}] ${clip(norm(x.typed), 80)}\n   -> ${clip(norm(x.sent), 120)}`).join('\n') : 'Образцов нет: /layer good или /layer fix <текст>.' }
     }
     if (sub === 'replay') {
-      if (!tail) return { text: 'Укажи файл: /layer replay <путь к JSONL с полями typed и context>' }
-      const items = (await $.fs.read(tail)).split('\n').filter(l => l.trim()).map(l => JSON.parse(l) as { typed: string })
-      const out: string[] = []
-      for (const [i, it] of items.entries()) {
-        $.ui.status(`Prompt Layer: replay ${i + 1}/${items.length}`)
-        const own = shield(it.typed)
-        const t0 = await $.clock.now()
-        const { result, usage, model } = await rewrite($, it.typed, own, (await get($, 'lang', 'keep')) === 'en')
-        out.push(JSON.stringify({ ...it, noise: noise(own.text), genre: genreOf(own.text), ...result, ms: (await $.clock.now()) - t0, model, usage }))
-      }
-      $.ui.status(undefined)
-      const path = `${tail.replace(/\.jsonl$/, '')}.out.jsonl`
-      await $.fs.write(path, out.join('\n') + '\n')
-      return { text: `[OK] ${items.length} промптов прогнано, ничего не отправлено: ${path}` }
+      if (!tail) return { text: 'Укажи файл: /layer replay <путь к JSONL с полем typed>' }
+      return { text: await replay($, tail) }
     }
     if (sub === 'report') return { text: report(log) }
     if (sub === 'cost') {
