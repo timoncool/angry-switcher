@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 
 import type { On } from 'claude-code'
 
-import { addedTokens, buildSystem, costReport, decide, decodeLayout, genreOf, missingTokens, noise, parseReply, pickExamples, report, shield, unshield, wantsLayer, wrongLayout } from '../hooks/register'
+import { ORIGINAL_NOTE, addedTokens, buildSystem, costReport, decide, decodeLayout, genreOf, missingTokens, noise, parseReply, pickExamples, report, shield, unshield, wantsLayer, withOriginal, wrongLayout } from '../hooks/register'
 import type { Entry, Example } from '../types'
 
 const usage = { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
@@ -230,7 +230,26 @@ test('a noisy prompt reaches the session rewritten by the model', async ($, on) 
   on('model.complete', rewritten('Последнее действие было ошибкой. Откати его сейчас и больше ничего не меняй.'))
   on('prompt.submit', (_$, e) => { seen = e.text; return { text: e.text } })
   await $.prompt.submit(submit('ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ'))
-  expect(seen).toBe('Последнее действие было ошибкой. Откати его сейчас и больше ничего не меняй.')
+  expect(seen).toBe('Последнее действие было ошибкой. Откати его сейчас и больше ничего не меняй.\n\n<original>\nЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ\n</original>')
+})
+
+test('/layer original off sends the rewrite alone', async ($, on) => {
+  let seen = ''
+  mock.store(on, { original: false })
+  mock.clock(on)
+  mockSession(on)
+  on('model.complete', rewritten('Откати последнее действие.'))
+  on('prompt.submit', (_$, e) => { seen = e.text; return { text: e.text } })
+  await $.prompt.submit(submit('ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ'))
+  expect(seen).toBe('Откати последнее действие.')
+})
+
+test('the system prompt tells the main model to trust the original', async ($, on) => {
+  mock.store(on)
+  on('prompt.compose', () => ({ sections: [{ id: 'core', text: 'x', scope: 'shared' as const }] }))
+  const r = await $.prompt.compose({ model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: [], tools: [], outputStyle: null, traits: [] })
+  expect(r.sections.map(s => s.id)).toEqual(['core', 'prompt-layer:original'])
+  expect(r.sections.at(-1)!.text).toBe(ORIGINAL_NOTE)
 })
 
 test('pasted text and code reach the model as placeholders and the session unchanged', async ($, on) => {
@@ -245,7 +264,7 @@ test('pasted text and code reach the model as placeholders and the session uncha
   await $.prompt.submit(submit(`бля почему падает вот лог\n${paste}`))
   expect(asked).toContain('⟦1⟧')
   expect(asked).not.toContain('TypeError')
-  expect(seen).toBe(`Найди причину ошибки из лога:\n${paste}`)
+  expect(seen).toBe(`Найди причину ошибки из лога:\n${paste}\n\n<original>\nбля почему падает вот лог\n</original>`)
 })
 
 test('wrong-layout text reaches the model decoded', async ($, on) => {
@@ -258,7 +277,7 @@ test('wrong-layout text reaches the model decoded', async ($, on) => {
   on('prompt.submit', (_$, e) => { seen = e.text; return { text: e.text } })
   await $.prompt.submit(submit('gjxtve d gjcnt yf gbrf,e vtymit lfyys[ xtv d ntktut'))
   expect(asked).toContain('<decoded_layout>\nпочему в посте на пикабу меньше данных чем в телеге\n</decoded_layout>')
-  expect(seen).toBe('Почему в посте на Пикабу меньше данных, чем в Телеграме?')
+  expect(seen).toBe('Почему в посте на Пикабу меньше данных, чем в Телеграме?\n\n<original>\nпочему в посте на пикабу меньше данных чем в телеге\n</original>')
 })
 
 test('a rewrite that loses a path goes out as typed', async ($, on) => {
@@ -372,11 +391,12 @@ test('the transcript row shows what was typed and what was sent', async ($, on) 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({
       plugin: 'prompt-layer', surface, component: 'UserMessage',
-      props: { text: sent, origin: { kind: 'composer' }, isExpanded: false },
+      props: { text: withOriginal(sent, 'ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ'), origin: { kind: 'composer' }, isExpanded: false },
     } as never)
     expect(await ui.find({ type: 'Text', text: /Prompt Layer переписал промпт/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /ты написал: ЕБАННЫЙ МУДИЛА/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /почищено: мат, капс/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^ушло: Последнее действие было ошибкой\. Откати его сейчас\.$/ })).toBeDefined()
     await ui.unmount()
   }
 })

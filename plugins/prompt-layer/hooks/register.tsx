@@ -6,6 +6,7 @@ import { addedTokens, decodeLayout, genreOf, isClearEnough, missingTokens, noise
 import type { Shielded } from './detect'
 import { buildSystem, parseReply, pickExamples } from './rules'
 
+export { ORIGINAL_NOTE }
 export { addedTokens, decodeLayout, genreOf, isClearEnough, missingTokens, noise, parseReply, buildSystem, pickExamples, shield, unshield, wrongLayout }
 
 const cardsA = atom({ plugin: 'prompt-layer', key: 'cards' } as const, [])
@@ -22,6 +23,7 @@ const MAX_TOKENS = 4000
 const BREAKER_FAILS = 3
 const BREAKER_PAUSE_MS = 10 * 60_000
 const PERSON = new Set(['composer', 'bridge', 'sdk'])
+const ORIGINAL_NOTE = 'Prompt Layer cleans the user\'s prompts before you read them: typos, swearing, caps and the wrong keyboard layout are fixed by a smaller model. A cleaned prompt ends with an <original> block holding the user\'s own words. The cleaned text is the easier read; where it and the original differ in meaning, the original is what the user meant.'
 const ROLLBACK = /(?:^|[^а-яё])(?:откат|откати|верни|вернуть|отмени)|\b(?:revert|undo|roll ?back)\b/iu
 const CORRECTION = /(?:^|[^а-яё])(?:не то|неправильно|неверно|опять|снова|переделай|не работает|сломал)|\b(?:wrong|not what|again|broke|redo)\b/iu
 
@@ -135,6 +137,7 @@ const HELP = [
   '/layer on | off         включить или выключить слой',
   '/layer card on | off    карточка «ты написал / ушло» в переписке',
   '/layer lang keep | en   оставлять язык или переводить промпт на английский (ответ остаётся на твоём языке)',
+  '/layer original on | off  прикладывать к переписанному промпту твой оригинал (по умолчанию да)',
   '/layer ab raw | en | off  A/B: половина промптов уходит как написано (raw) или на английском (en); всё в лог',
   '/layer model <id>       модель слоя (по умолчанию claude-sonnet-5-5)',
   '/layer style <текст>    твои правила стиля; /layer style — показать, /layer style clear — стереть',
@@ -217,6 +220,12 @@ async function replay($: EngineInterface, file: string): Promise<string> {
   return `[OK] ${items.length} промптов прогнано, ничего не отправлено: ${path}`
 }
 
+/** The rewrite followed by the user's own words, so the main model can catch a meaning the rewrite lost; code, pastes and quotes are already verbatim in the rewrite. */
+export function withOriginal(rewrite: string, own: string): string {
+  const original = own.replace(/⟦\d+⟧/g, '').replace(/\n{3,}/g, '\n\n').trim()
+  return original ? `${rewrite}\n\n<original>\n${original}\n</original>` : rewrite
+}
+
 const norm = (s: string) => s.trim().replace(/\s+/g, ' ')
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 const replyLanguage = (text: string) => (/[а-яё]/i.test(text) ? 'Russian' : 'the language of the conversation')
@@ -258,6 +267,7 @@ export const register: Register = on => {
     if (sub === 'card' && (flag === 'on' || flag === 'off')) await $.store.set('card', flag === 'on')
     if (sub === 'lang' && (flag === 'keep' || flag === 'en')) await $.store.set('lang', flag)
     if (sub === 'ab' && (flag === 'raw' || flag === 'en' || flag === 'off')) await $.store.set('ab', flag)
+    if (sub === 'original' && (flag === 'on' || flag === 'off')) await $.store.set('original', flag === 'on')
     if (sub === 'model' && tail) await $.store.set('model', tail)
     if (sub === 'style') {
       if (flag === 'clear') await $.store.set('style', '')
@@ -304,7 +314,7 @@ export const register: Register = on => {
     return {
       text: [
         `Prompt Layer: ${enabled ? 'ВКЛ' : 'ВЫКЛ'}${pausedUntil > now ? `, на паузе ещё ${Math.ceil((pausedUntil - now) / 60_000)} мин после сбоев модели` : ''}`,
-        `модель: ${await get($, 'model', DEFAULT_MODEL)}, язык: ${await get($, 'lang', 'keep')}, A/B: ${await get($, 'ab', 'off')}`,
+        `модель: ${await get($, 'model', DEFAULT_MODEL)}, язык: ${await get($, 'lang', 'keep')}, A/B: ${await get($, 'ab', 'off')}, оригинал рядом: ${(await get($, 'original', true)) !== false ? 'да' : 'нет'}`,
         `карточка: ${(await get($, 'card', true)) ? 'да' : 'нет'}, стиль: ${(await get($, 'style', '')) ? 'задан' : 'нет'}, образцов: ${(await get<Example[]>($, 'examples', [])).length}, записей в логе: ${log.length}`,
         `последний источник промпта: ${await get($, 'lastOrigin', '-')}`,
         spendLine(log, now - DAY_MS, 'траты слоя за 24 часа'),
@@ -363,7 +373,8 @@ export const register: Register = on => {
       failStreak = 0
     }
 
-    const sent = arm === 'raw' ? typed : result.sent
+    const original = (await get($, 'original', true)) !== false
+    const sent = arm === 'raw' ? typed : original && result.verdict === 'rewrite' ? withOriginal(result.sent, wrongLayout(own.text) ? decodeLayout(own.text) : own.text) : result.sent
     const id = `${now}-${Math.random().toString(36).slice(2, 8)}`
     await appendLog($, { id, ts: now, arm, noise: found, genre, verdict: result.verdict, typed: clip(typed, 1000), layered: result.layered && clip(result.layered, 1000), sent: clip(sent, 1000), latencyMs: done - now, sessionId: await sessionId($), model, usage, costUsd })
     await update($, openA, () => id)
@@ -371,10 +382,16 @@ export const register: Register = on => {
     const blind = ab !== 'off'
     if (result.note && !blind) $.ui.toast(`Prompt Layer: ${result.note}`)
     if (!blind && norm(sent) !== norm(typed) && (await get($, 'card', true)) !== false) {
-      const card: Card = { typed, sent, noise: found, genre, english: arm === 'en' }
+      const card: Card = { typed, sent, shown: result.sent, noise: found, genre, english: arm === 'en' }
       await update($, cardsA, list => [...list, card].slice(-50))
     }
     return norm(sent) === norm(typed) ? next(e) : next({ ...e, text: sent })
+  })
+
+  on('prompt.compose', async ($, e, next) => {
+    const composed = await next(e)
+    if ((await get($, 'enabled', true)) === false || (await get($, 'original', true)) === false) return composed
+    return { sections: [...composed.sections, { id: 'prompt-layer:original', text: ORIGINAL_NOTE, scope: 'session' as const }] }
   })
 
   on('turn.complete', async ($, e, next) => {
@@ -402,7 +419,7 @@ export const register: Register = on => {
       <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
         <Text bold color="cyan">Prompt Layer переписал промпт</Text>
         <Text dimColor>ты написал: {clip(hit.typed, 400)}</Text>
-        <Text>ушло: {hit.sent}</Text>
+        <Text>ушло: {hit.shown}</Text>
         {why ? <Text color="green">{why}</Text> : null}
       </Box>
     )
