@@ -21,8 +21,8 @@ The developer's slang and what it means: хайку / хкайку = Claude Haik
 </glossary>`
 
 const OUTPUT = `<output_format>
-Reply with the cleaned prompt and nothing else. It reaches the agent as the developer's own words, so it carries no notes of yours, not even about a word you could not make out. If the prompt is already clean, clear and specific, repeat it as it is.
-If the prompt contains swear words or insults, add after the cleaned prompt a copy of the prompt inside <original></original>, exactly as typed (from <decoded_layout> when that is present), typos, placeholders and line breaks included, with each swear word and insult replaced by its first letter and *** ("блядь" becomes "б***", "fucking" becomes "f***"). Change nothing else in that copy: it travels to the agent next to your cleaned prompt so the agent can check you, and it is only useful while it is exact.
+Put the cleaned prompt inside <rewritten></rewritten>; if it is already clean, clear and specific, put it there as it is. Only the text inside the tags reaches the agent, as the developer's own words, so it carries no notes of yours, not even about a word you could not make out.
+If the prompt contains swear words or insults, add after it a copy of the prompt inside <original></original>, exactly as typed (from <decoded_layout> when that is present), typos, placeholders and line breaks included, with each swear word and insult replaced by its first letter and *** ("блядь" becomes "б***", "fucking" becomes "f***"). Change nothing else in that copy: it travels to the agent next to your cleaned prompt so the agent can check you, and it is only useful while it is exact.
 </output_format>`
 
 const BUILT_IN: readonly Example[] = [
@@ -56,7 +56,7 @@ export type Ask = { style: string; examples: readonly Example[]; genre: Genre; e
 
 const shot = (x: Example) => {
   const original = x.original ? `\n<original>\n${x.original}\n</original>` : ''
-  return `<example>\n<prompt>\n${x.typed}\n</prompt>\n${x.sent}${original}\n</example>`
+  return `<example>\n<prompt>\n${x.typed}\n</prompt>\n<rewritten>\n${x.sent}\n</rewritten>${original}\n</example>`
 }
 
 export function buildSystem(ask: Ask): string {
@@ -77,10 +77,14 @@ export function pickExamples(all: readonly Example[], genre: Genre, max = 4): Ex
 
 export type Reply = { kind: 'rewrite'; text: string; masked: string | null } | { kind: 'empty' }
 
+const lastBlock = (reply: string, tag: string) => {
+  const at = reply.lastIndexOf(`<${tag}>`)
+  return at < 0 ? null : reply.slice(at + tag.length + 2).split(/<\/?(?:rewritten|original)>/)[0]!.trim()
+}
+
+/** The last <rewritten> block, closed or not; a reply with no such block is taken whole, minus its <original> copy. */
 export function parseReply(reply: string): Reply {
-  const at = reply.indexOf('<original>')
-  const text = (at < 0 ? reply : reply.slice(0, at)).trim()
-  const masked = at < 0 ? null : reply.slice(at + '<original>'.length).replace(/<\/original>[\s\S]*$/, '').trim() || null
-  return text ? { kind: 'rewrite', text, masked } : { kind: 'empty' }
+  const text = lastBlock(reply, 'rewritten') ?? reply.split('<original>')[0]!.trim()
+  return text ? { kind: 'rewrite', text, masked: lastBlock(reply, 'original') || null } : { kind: 'empty' }
 }
 

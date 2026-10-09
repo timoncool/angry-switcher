@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2 — 2026-10-09
+
+- The cleaned prompt goes back inside `<rewritten>` tags, read leniently: the last block counts, a missing closing tag is fine, and a reply with no tags is taken whole. Without the tags the cleaning model sometimes wrote its own reasoning into the prompt.
+
 ## 0.4.1 — 2026-10-09
 
 - The cleaning model answers with the cleaned prompt as plain text, no wrapper tags; the masked `<original>` copy follows it when there was swearing. A prompt no longer goes out as typed because the answer missed a tag.

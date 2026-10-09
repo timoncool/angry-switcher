@@ -16,7 +16,7 @@ function mockSession(on: On, ledger: readonly number[] = [0.1, 0.1003]) {
   return () => reads
 }
 const answer = (text: string) => () => ({ value: { isAnswered: true, text, usage } }) as never
-const rewritten = (text: string) => answer(`${text}\n`)
+const rewritten = (text: string) => answer(`<rewritten>\n${text}\n</rewritten>`)
 const failure = () => ({ value: { isAnswered: false, reason: 'api-error', status: 529, error: 'overloaded', usage } }) as never
 
 describe('noise', () => {
@@ -103,10 +103,14 @@ describe('missingTokens', () => {
 })
 
 describe('parseReply', () => {
-  test('the reply is the cleaned prompt, the original copy rides after it', async () => {
+  test('the cleaned prompt is the last <rewritten> block, closed or not; notes around it are dropped', async () => {
+    expect(parseReply('<rewritten>\nОткати последнее действие.\n</rewritten>')).toEqual({ kind: 'rewrite', text: 'Откати последнее действие.', masked: null })
+    expect(parseReply('<rewritten>\nОткати.\n</rewritten>\n<original>\nну ты д*** б*** откати\n</original>')).toEqual({ kind: 'rewrite', text: 'Откати.', masked: 'ну ты д*** б*** откати' })
+    expect(parseReply('<rewritten>\nОткати.\n<original>\nну ты д*** б*** откати')).toEqual({ kind: 'rewrite', text: 'Откати.', masked: 'ну ты д*** б*** откати' })
+    expect(parseReply('<rewritten>Не надо.</rewritten>\nHmm, "андо" is unclear.\n<rewritten>Не надо решать, а надо погуглить.</rewritten>')).toEqual({ kind: 'rewrite', text: 'Не надо решать, а надо погуглить.', masked: null })
+  })
+  test('a reply without tags is taken whole', async () => {
     expect(parseReply('Откати последнее действие.\n')).toEqual({ kind: 'rewrite', text: 'Откати последнее действие.', masked: null })
-    expect(parseReply('Откати.\n<original>\nну ты д*** б*** откати\n</original>')).toEqual({ kind: 'rewrite', text: 'Откати.', masked: 'ну ты д*** б*** откати' })
-    expect(parseReply('Откати.\n<original>\nну ты д*** б*** откати')).toEqual({ kind: 'rewrite', text: 'Откати.', masked: 'ну ты д*** б*** откати' })
   })
   test('an empty reply is never a rewrite', async () => {
     expect(parseReply('  \n')).toEqual({ kind: 'empty' })
@@ -152,9 +156,9 @@ describe('buildSystem and pickExamples', () => {
     expect(keep).toContain('хайку / хкайку = Claude Haiku')
     expect(keep).toContain('This looks like a rollback')
     expect(keep).toContain('<style>\nкоротко\n</style>')
-    expect(keep).toContain('<prompt>\nа\n</prompt>\nб\n</example>')
-    expect(keep).toContain('<prompt>\nЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ\n</prompt>\nБыстро откати.\n<original>\nЕ*** М*** БЫСТРО ОТКАТИЛ\n</original>')
-    expect(keep).toContain('<prompt>\nзапусти npm test и почини всё, что упадёт в src/api/\n</prompt>\nзапусти npm test и почини всё, что упадёт в src/api/\n</example>')
+    expect(keep).toContain('<prompt>\nа\n</prompt>\n<rewritten>\nб\n</rewritten>')
+    expect(keep).toContain('<prompt>\nЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ\n</prompt>\n<rewritten>\nБыстро откати.\n</rewritten>\n<original>\nЕ*** М*** БЫСТРО ОТКАТИЛ\n</original>')
+    expect(keep).toContain('<prompt>\nзапусти npm test и почини всё, что упадёт в src/api/\n</prompt>\n<rewritten>\nзапусти npm test и почини всё, что упадёт в src/api/\n</rewritten>')
     expect(keep).toContain('When the developer talks about their own words in this prompt')
     expect(keep).toContain('a short reply stays a short reply')
     expect(keep).not.toContain('three times the original')
@@ -164,7 +168,7 @@ describe('buildSystem and pickExamples', () => {
     expect(keep).toContain('A statement stays a statement')
     expect(keep).toContain('are insults, not questions')
     expect(keep).toContain('Grammatical gender stays as typed')
-    expect(keep).toContain('<prompt>\nсмотри щас напишу "ты дебил" ты это увидишь вообще?\n</prompt>\nсмотри щас напишу "ты дебил" ты это увидишь вообще?\n</example>')
+    expect(keep).toContain('<prompt>\nсмотри щас напишу "ты дебил" ты это увидишь вообще?\n</prompt>\n<rewritten>\nсмотри щас напишу "ты дебил" ты это увидишь вообще?\n</rewritten>')
     expect(buildSystem({ style: '', examples: [], genre: 'general', english: true, replyIn: 'Russian' })).toContain('Reply in Russian.')
   })
   test('saved examples of the same task type come first', async () => {
@@ -238,7 +242,7 @@ test('the rewriting model\'s masked copy is what rides along as the original', a
   mock.store(on)
   mock.clock(on)
   mockSession(on)
-  on('model.complete', answer('Откати последнее действие.\n<original>\nну ты д*** б*** откати\n</original>'))
+  on('model.complete', answer('<rewritten>\nОткати последнее действие.\n</rewritten>\n<original>\nну ты д*** б*** откати\n</original>'))
   on('prompt.submit', (_$, e) => { seen = e.text; return { text: e.text } })
   await $.prompt.submit(submit('ну ты долбеоб блдяь откати'))
   expect(seen).toBe('Откати последнее действие.\n\n<original>\nну ты д*** б*** откати\n</original>')
