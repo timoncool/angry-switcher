@@ -1,6 +1,6 @@
 export type Genre = 'fix' | 'rollback' | 'investigate' | 'build' | 'research' | 'general'
 
-/** A pair the person approved or corrected, shown to Haiku as an example of their manner. */
+/** A pair the person approved or corrected, shown to the model as an example of their manner. */
 export type Example = { typed: string; sent: string; genre: Genre }
 
 /** One rewritten prompt, kept for the before/after card in the transcript. */
@@ -24,7 +24,9 @@ export type Entry = {
   sent: string
   latencyMs: number
   sessionId: string
-  /** Haiku's tokens for this call, as the API reported them. */
+  /** The model the layer asked for this call; absent in entries written before 0.3.1. */
+  model?: string
+  /** The model's tokens for this call, as the API reported them. */
   usage: { input: number; output: number; cacheRead: number; cacheWrite: number }
   /** The session cost ledger's growth over the call (the /cost figure); null when another request could have landed in between. */
   costUsd: number | null

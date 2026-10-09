@@ -145,7 +145,7 @@ describe('wantsLayer', () => {
 })
 
 describe('buildSystem and pickExamples', () => {
-  test('rules, language, task hint, built-in and saved examples and style reach Haiku', async () => {
+  test('rules, language, task hint, built-in and saved examples and style reach the model', async () => {
     const examples: Example[] = [{ typed: 'а', sent: 'б', genre: 'fix' }]
     const keep = buildSystem({ style: 'коротко', examples, genre: 'rollback', english: false, replyIn: 'Russian' })
     expect(keep).toContain('Russian stays Russian')
@@ -155,6 +155,10 @@ describe('buildSystem and pickExamples', () => {
     expect(keep).toContain('<prompt>\nа\n</prompt>\n<rewritten>\nб\n</rewritten>')
     expect(keep).toContain('<prompt>\nЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ\n</prompt>')
     expect(keep).toContain('<prompt>\nзапусти npm test и почини всё, что упадёт в src/api/\n</prompt>\n<unchanged/>')
+    expect(keep).toContain('When the developer talks about their own words in this prompt')
+    expect(keep).toContain('a short reply stays a short reply')
+    expect(keep).not.toContain('three times the original')
+    expect(keep).toContain('<prompt>\nсмотри щас напишу "ты дебил" ты это увидишь вообще?\n</prompt>\n<unchanged/>')
     expect(buildSystem({ style: '', examples: [], genre: 'general', english: true, replyIn: 'Russian' })).toContain('Reply in Russian.')
   })
   test('saved examples of the same task type come first', async () => {
@@ -212,7 +216,7 @@ test('the cost of a call is read from the session ledger before and after it', a
 
 const submit = (text: string) => ({ text, origin: { kind: 'composer' as const }, wait: false })
 
-test('a noisy prompt reaches the session rewritten by Haiku', async ($, on) => {
+test('a noisy prompt reaches the session rewritten by the model', async ($, on) => {
   let seen = ''
   mock.store(on)
   mock.clock(on)
@@ -223,7 +227,7 @@ test('a noisy prompt reaches the session rewritten by Haiku', async ($, on) => {
   expect(seen).toBe('Последнее действие было ошибкой. Откати его сейчас и больше ничего не меняй.')
 })
 
-test('pasted text and code reach Haiku as placeholders and the session unchanged', async ($, on) => {
+test('pasted text and code reach the model as placeholders and the session unchanged', async ($, on) => {
   let asked = ''
   let seen = ''
   mock.store(on)
@@ -238,7 +242,7 @@ test('pasted text and code reach Haiku as placeholders and the session unchanged
   expect(seen).toBe(`Найди причину ошибки из лога:\n${paste}`)
 })
 
-test('wrong-layout text reaches Haiku decoded', async ($, on) => {
+test('wrong-layout text reaches the model decoded', async ($, on) => {
   let asked = ''
   let seen = ''
   mock.store(on)
@@ -260,6 +264,22 @@ test('a rewrite that loses a path goes out as typed', async ($, on) => {
   on('prompt.submit', (_$, e) => { seen = e.text; return { text: e.text } })
   await $.prompt.submit(submit('бля опять сломал src/api.ts'))
   expect(seen).toBe('бля опять сломал src/api.ts')
+})
+
+test('the log names the model each call asked for', async ($, on) => {
+  const asked: string[] = []
+  const store = new Map<string, unknown>()
+  on('store.get', (_$, e) => ({ value: store.get(e.key) }) as never)
+  on('store.set', (_$, e) => { store.set(e.key, e.value); return { value: undefined } as never })
+  mock.clock(on)
+  mockSession(on)
+  on('model.complete', (_$, e) => { asked.push(e.model); return rewritten('Откати последнее действие.')() })
+  on('prompt.submit', (_$, e) => ({ text: e.text }))
+  await $.prompt.submit(submit('ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ'))
+  await $.command.run({ command: 'layer', args: 'model claude-haiku-5-5' } as never)
+  await $.prompt.submit(submit('ну бля опять сломал всё откати'))
+  expect(asked).toEqual(['claude-sonnet-5-5', 'claude-haiku-5-5'])
+  expect((store.get('log') as Entry[]).map(e => e.model)).toEqual(['claude-sonnet-5-5', 'claude-haiku-5-5'])
 })
 
 test('three failures in a row pause the layer', async ($, on) => {
@@ -309,7 +329,7 @@ test('/layer off sends prompts as typed', async ($, on) => {
   expect(seen).toBe('ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ')
 })
 
-test('lang en asks Haiku for English with a reply line', async ($, on) => {
+test('lang en asks the model for English with a reply line', async ($, on) => {
   let system = ''
   mock.store(on, { lang: 'en' })
   mock.clock(on)

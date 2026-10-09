@@ -35,7 +35,7 @@ export function wantsLayer(text: string, noisy: boolean): boolean {
 export type Layered = { verdict: Verdict; sent: string; layered: string | null; note: string | null }
 
 /**
- * What goes out, given Haiku's reply or why there was none: a rewrite only when it is well formed,
+ * What goes out, given the model's reply or why there was none: a rewrite only when it is well formed,
  * puts every shielded block back exactly once and lost no protected detail.
  */
 export function decide(typed: string, blocks: readonly string[], reply: { ok: true; text: string } | { ok: false; reason: string }, reference = typed): Layered {
@@ -176,16 +176,17 @@ async function sessionId($: EngineInterface) {
   }
 }
 
-type Asked = { result: Layered; usage: Entry['usage'] }
+type Asked = { result: Layered; usage: Entry['usage']; model: string }
 
 async function rewrite($: EngineInterface, typed: string, own: Shielded, english: boolean): Promise<Asked> {
   const genre = genreOf(own.text)
   const examples = pickExamples(await get<Example[]>($, 'examples', []), genre)
   const decoded = wrongLayout(own.text) ? decodeLayout(own.text) : null
   const system = buildSystem({ style: await get($, 'style', ''), examples, genre, english, replyIn: replyLanguage(decoded ?? own.text) })
+  const model = await get($, 'model', DEFAULT_MODEL)
   try {
     const r = await $.model.complete({
-      model: await get($, 'model', DEFAULT_MODEL),
+      model,
       system: [{ text: system, cache: true }],
       prompt: [`<prompt>\n${own.text}\n</prompt>`, decoded && `<decoded_layout>\n${decoded}\n</decoded_layout>`].filter(Boolean).join('\n\n'),
       maxTokens: MAX_TOKENS,
@@ -193,9 +194,9 @@ async function rewrite($: EngineInterface, typed: string, own: Shielded, english
       timeoutMs: TIMEOUT_MS,
     })
     const usage = { input: r.usage.input_tokens, output: r.usage.output_tokens, cacheRead: r.usage.cache_read_input_tokens, cacheWrite: r.usage.cache_creation_input_tokens }
-    return { result: decide(typed, own.blocks, r.isAnswered ? { ok: true, text: r.text } : { ok: false, reason: r.reason }, decoded ? `${typed}\n${decoded}` : typed), usage }
+    return { result: decide(typed, own.blocks, r.isAnswered ? { ok: true, text: r.text } : { ok: false, reason: r.reason }, decoded ? `${typed}\n${decoded}` : typed), usage, model }
   } catch (err) {
-    return { result: decide(typed, own.blocks, { ok: false, reason: String(err) }), usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }
+    return { result: decide(typed, own.blocks, { ok: false, reason: String(err) }), usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, model }
   }
 }
 
@@ -263,8 +264,8 @@ export const register: Register = on => {
         $.ui.status(`Prompt Layer: replay ${i + 1}/${items.length}`)
         const own = shield(it.typed)
         const t0 = await $.clock.now()
-        const { result, usage } = await rewrite($, it.typed, own, (await get($, 'lang', 'keep')) === 'en')
-        out.push(JSON.stringify({ ...it, noise: noise(own.text), genre: genreOf(own.text), ...result, ms: (await $.clock.now()) - t0, usage }))
+        const { result, usage, model } = await rewrite($, it.typed, own, (await get($, 'lang', 'keep')) === 'en')
+        out.push(JSON.stringify({ ...it, noise: noise(own.text), genre: genreOf(own.text), ...result, ms: (await $.clock.now()) - t0, model, usage }))
       }
       $.ui.status(undefined)
       const path = `${tail.replace(/\.jsonl$/, '')}.out.jsonl`
@@ -286,7 +287,7 @@ export const register: Register = on => {
     const now = await $.clock.now()
     return {
       text: [
-        `Prompt Layer: ${enabled ? 'ВКЛ' : 'ВЫКЛ'}${pausedUntil > now ? `, на паузе ещё ${Math.ceil((pausedUntil - now) / 60_000)} мин после сбоев Haiku` : ''}`,
+        `Prompt Layer: ${enabled ? 'ВКЛ' : 'ВЫКЛ'}${pausedUntil > now ? `, на паузе ещё ${Math.ceil((pausedUntil - now) / 60_000)} мин после сбоев модели` : ''}`,
         `модель: ${await get($, 'model', DEFAULT_MODEL)}, язык: ${await get($, 'lang', 'keep')}, A/B: ${await get($, 'ab', 'off')}`,
         `карточка: ${(await get($, 'card', true)) ? 'да' : 'нет'}, стиль: ${(await get($, 'style', '')) ? 'задан' : 'нет'}, образцов: ${(await get<Example[]>($, 'examples', [])).length}, записей в логе: ${log.length}`,
         `последний источник промпта: ${await get($, 'lastOrigin', '-')}`,
@@ -329,7 +330,7 @@ export const register: Register = on => {
     } finally {
       $.ui.status(undefined)
     }
-    const { result, usage } = asked
+    const { result, usage, model } = asked
 
     const done = await $.clock.now()
     const ledgerAfter = alone ? await ledger($) : null
@@ -348,7 +349,7 @@ export const register: Register = on => {
 
     const sent = arm === 'raw' ? typed : result.sent
     const id = `${now}-${Math.random().toString(36).slice(2, 8)}`
-    await appendLog($, { id, ts: now, arm, noise: found, genre, verdict: result.verdict, typed: clip(typed, 1000), layered: result.layered && clip(result.layered, 1000), sent: clip(sent, 1000), latencyMs: done - now, sessionId: await sessionId($), usage, costUsd })
+    await appendLog($, { id, ts: now, arm, noise: found, genre, verdict: result.verdict, typed: clip(typed, 1000), layered: result.layered && clip(result.layered, 1000), sent: clip(sent, 1000), latencyMs: done - now, sessionId: await sessionId($), model, usage, costUsd })
     await update($, openA, () => id)
 
     const blind = ab !== 'off'
