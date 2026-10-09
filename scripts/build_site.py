@@ -519,10 +519,6 @@ def page(lang):
     <h2>{E(t['num_h'])}</h2>
     <p class="sub">{E(t['num_sub'])}</p>
     <div class="stats">{stats}</div>
-    <div class="models">
-      <div><h3>{E(t['models_h'])}</h3><p>{E(t['models_sub'])}</p></div>
-      <table><thead><tr>{cols}</tr></thead><tbody>{rows}</tbody></table>
-    </div>
     <p class="note">{E(t['num_note'])}</p>
   </section>
 

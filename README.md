@@ -87,12 +87,6 @@ Scored by hand on real prompts: each rewrite gets the share of its meaning that 
 | Time to clean one message, median | 1.4 s |
 | Cost per cleaned message at API prices | about $0.0015 |
 
-| Model (40 prompts, 0-2 points each) | Score | Time for 40 | Meaning errors |
-|---|---|---|---|
-| Haiku 5.5, low effort | 70 / 80 | 81 s | 1 |
-| **Sonnet 5.5, low effort** | **74 / 80** | **40 s** | **0** |
-| Haiku 5.5, xhigh effort | 74 / 80 | 252 s | 0 |
-
 The same prompt comes out slightly differently from run to run, so swings of 1-2% are noise.
 
 **Good:** clean prompts; layout and translit decoded; details kept or the original sent; Claude sees your original and catches a misread.
