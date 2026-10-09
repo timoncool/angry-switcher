@@ -56,7 +56,7 @@ T = {
         'num_h': 'What we measured',
         'num_sub': 'Scored by hand on real prompts: each rewrite gets the share of its meaning that survived.',
         'stats': [
-            ('97-99%', 'meaning kept on 29 messages from one live chat, up from 80% before the minimal-edit rules'),
+            ('97-100%', 'meaning kept on 51 real messages from two live chats'),
             ('96-98%', 'on 40 older prompts from the same author'),
             ('1.4 s', 'median time to clean one message'),
             ('$0.0015', 'per cleaned message at API prices; a 91-prompt test run cost about $0.13'),
@@ -166,7 +166,7 @@ T = {
         'num_h': 'Что мы замерили',
         'num_sub': 'Вручную, на настоящих сообщениях: каждому переписыванию ставилась доля смысла, которая дошла.',
         'stats': [
-            ('97-99%', 'смысла сохранено на 29 сообщениях из живого чата, до правил минимальной правки было 80%'),
+            ('97-100%', 'смысла сохранено на 51 настоящем сообщении из двух живых чатов'),
             ('96-98%', 'на 40 более старых сообщениях того же автора'),
             ('1,4 с', 'медианное время чистки одного сообщения'),
             ('$0.0015', 'за одно сообщение по ценам API; прогон 91 сообщения обошёлся примерно в $0.13'),
@@ -594,7 +594,7 @@ Angry Switcher is a Claude Code plugin. On every prompt it runs a local check, s
 
 - Install: `/plugin marketplace add timoncool/angry-switcher`, then `/plugin install angry-switcher@angry-switcher`, then `/angry`.
 - Cost: about $0.0015 per cleaned message at API prices; nothing extra on a Claude subscription.
-- Measured: 97-99% of meaning kept on real messages, 1.4 s median per cleaned message.
+- Measured: 97-100% of meaning kept on real messages, 1.4 s median per cleaned message.
 
 ## Links
 

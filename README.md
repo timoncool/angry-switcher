@@ -80,11 +80,12 @@ Or by hand:
 
 Scored by hand on real prompts: each rewrite gets the share of its meaning that survived.
 
-| Set | Before the minimal-edit rules | Now |
-|---|---|---|
-| 29 messages from one live chat | 80% | 97-99% |
-| 40 older prompts from the same author | | 96-98% |
-| 22 messages from another chat | 81% | 97-100% |
+| What | Result |
+|---|---|
+| Meaning kept, 51 real messages from two live chats | 97-100% |
+| Meaning kept, 40 older prompts | 96-98% |
+| Time to clean one message, median | 1.4 s |
+| Cost per cleaned message at API prices | about $0.0015 |
 
 | Model (40 prompts, 0-2 points each) | Score | Time for 40 | Meaning errors |
 |---|---|---|---|
@@ -92,7 +93,7 @@ Scored by hand on real prompts: each rewrite gets the share of its meaning that 
 | **Sonnet 5.5, low effort** | **74 / 80** | **40 s** | **0** |
 | Haiku 5.5, xhigh effort | 74 / 80 | 252 s | 0 |
 
-A cleaned message takes about 1.4 s (median). The same prompt comes out slightly differently from run to run, so swings of 1-2% are noise.
+The same prompt comes out slightly differently from run to run, so swings of 1-2% are noise.
 
 **Good:** clean prompts; layout and translit decoded; details kept or the original sent; Claude sees your original and catches a misread.
 **Not so good:** about 1.4 s per cleaned message; garbled typos are still misread now and then; a swear word the cleaning model misses reaches Claude in the original; Claude Code only, not the claude.ai chat.
