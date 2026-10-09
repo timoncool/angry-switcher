@@ -37,19 +37,16 @@ export function wantsLayer(text: string, noisy: boolean): boolean {
 export type Layered = { verdict: Verdict; sent: string; layered: string | null; note: string | null; masked?: string | null }
 
 /**
- * What goes out, given the model's reply or why there was none: a rewrite only when it is well formed,
+ * What goes out, given the model's reply or why there was none: a rewrite only when it is not empty,
  * puts every shielded block back exactly once and lost no protected detail.
  */
 export function decide(typed: string, blocks: readonly string[], reply: { ok: true; text: string } | { ok: false; reason: string }, reference = typed): Layered {
   if (!reply.ok) return { verdict: 'failed', sent: typed, layered: null, note: `модель не ответила (${reply.reason}); ушло как написано.` }
   const out = parseReply(reply.text)
-  if (out.kind !== 'rewrite') {
-    return out.kind === 'unchanged'
-      ? { verdict: 'unchanged', sent: typed, layered: null, note: null }
-      : { verdict: 'malformed', sent: typed, layered: null, note: 'ответ модели не по формату; ушло как написано.' }
-  }
+  if (out.kind === 'empty') return { verdict: 'malformed', sent: typed, layered: null, note: 'модель вернула пустой ответ; ушло как написано.' }
   const restored = unshield(out.text, blocks)
   if (restored === null) return { verdict: 'guard', sent: typed, layered: out.text, note: 'переписывание потеряло код или вставленный текст; ушло как написано.' }
+  if (restored === typed.trim()) return { verdict: 'unchanged', sent: typed, layered: null, note: null }
   const missing = missingTokens(typed, restored)
   if (missing.length) return { verdict: 'guard', sent: typed, layered: restored, note: `переписывание потеряло ${missing.slice(0, 3).join(', ')}; ушло как написано.` }
   const added = addedTokens(reference, restored)

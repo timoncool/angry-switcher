@@ -21,8 +21,8 @@ The developer's slang and what it means: хайку / хкайку = Claude Haik
 </glossary>`
 
 const OUTPUT = `<output_format>
-If the prompt is already clean, clear and specific, reply with exactly <unchanged/>.
-Otherwise put the rewritten prompt inside <rewritten></rewritten> tags. If the prompt contains swear words or insults, then copy it into <original></original> exactly as typed (from <decoded_layout> when that is present), typos, placeholders and line breaks included, with each swear word and insult replaced by its first letter and *** ("блядь" becomes "б***", "fucking" becomes "f***"). Change nothing else in that copy: it travels to the agent next to your rewrite so the agent can check you, and it is only useful while it is exact. Without swearing or insults, leave <original> out. Only the text inside the tags is used.
+Reply with the cleaned prompt and nothing else. It reaches the agent as the developer's own words, so it carries no notes of yours, not even about a word you could not make out. If the prompt is already clean, clear and specific, repeat it as it is.
+If the prompt contains swear words or insults, add after the cleaned prompt a copy of the prompt inside <original></original>, exactly as typed (from <decoded_layout> when that is present), typos, placeholders and line breaks included, with each swear word and insult replaced by its first letter and *** ("блядь" becomes "б***", "fucking" becomes "f***"). Change nothing else in that copy: it travels to the agent next to your cleaned prompt so the agent can check you, and it is only useful while it is exact.
 </output_format>`
 
 const BUILT_IN: readonly Example[] = [
@@ -33,15 +33,15 @@ const BUILT_IN: readonly Example[] = [
   { typed: 'глянь логи сервера блять у тебя есть туда доступ', sent: 'Глянь логи сервера: у тебя есть туда доступ.', genre: 'investigate', original: 'глянь логи сервера б*** у тебя есть туда доступ' },
   { typed: 'pochini test v src/auth.ts on padaet posle refresh tokena', sent: 'Почини тест для src/auth.ts: он падает после обновления refresh-токена.', genre: 'fix' },
   { typed: 'НЕ ТРОГАЙ МИГРАЦИИ!!! добавь поле email в модель User', sent: 'Добавь поле email в модель User.\nВажно: миграции не трогай.', genre: 'build' },
-  { typed: 'запусти npm test и почини всё, что упадёт в src/api/', sent: '<unchanged/>', genre: 'fix' },
-  { typed: 'смотри щас напишу "ты дебил" ты это увидишь вообще?', sent: '<unchanged/>', genre: 'general' },
+  { typed: 'запусти npm test и почини всё, что упадёт в src/api/', sent: 'запусти npm test и почини всё, что упадёт в src/api/', genre: 'fix' },
+  { typed: 'смотри щас напишу "ты дебил" ты это увидишь вообще?', sent: 'смотри щас напишу "ты дебил" ты это увидишь вообще?', genre: 'general' },
   { typed: 'да конечно делай в этом и смысл', sent: 'Да, конечно, делай — в этом и смысл.', genre: 'general' },
   { typed: 'ну и почему ты там на прогоне 20 файлов не заметил блять?', sent: 'Почему ты не заметил этого на прогоне из 20 файлов?', genre: 'investigate', original: 'ну и почему ты там на прогоне 20 файлов не заметил б***?' },
 ]
 
 const KEEP_LANGUAGE = 'Language: keep the developer\'s language. Russian stays Russian, English stays English.'
 
-const TO_ENGLISH = (replyIn: string) => `Language: write the rewrite in English, keeping every detail from rule 2 verbatim (quoted text too), and end it with the line "Reply in ${replyIn}." Reply <unchanged/> only when the prompt is already clean English.`
+const TO_ENGLISH = (replyIn: string) => `Language: write the rewrite in English, keeping every detail from rule 2 verbatim (quoted text too), and end it with the line "Reply in ${replyIn}." Repeat the prompt as it is only when it is already clean English.`
 
 const GENRE_HINT: Record<Genre, string | null> = {
   fix: 'This looks like a bug fix: keep the exact symptom and error text, and put expected and actual behaviour side by side when both are given.',
@@ -56,8 +56,7 @@ export type Ask = { style: string; examples: readonly Example[]; genre: Genre; e
 
 const shot = (x: Example) => {
   const original = x.original ? `\n<original>\n${x.original}\n</original>` : ''
-  const out = x.sent === '<unchanged/>' ? x.sent : `<rewritten>\n${x.sent}\n</rewritten>${original}`
-  return `<example>\n<prompt>\n${x.typed}\n</prompt>\n${out}\n</example>`
+  return `<example>\n<prompt>\n${x.typed}\n</prompt>\n${x.sent}${original}\n</example>`
 }
 
 export function buildSystem(ask: Ask): string {
@@ -76,16 +75,12 @@ export function pickExamples(all: readonly Example[], genre: Genre, max = 4): Ex
   return [...same, ...rest]
 }
 
-export type Reply = { kind: 'rewrite'; text: string; masked: string | null } | { kind: 'unchanged' | 'malformed' }
+export type Reply = { kind: 'rewrite'; text: string; masked: string | null } | { kind: 'empty' }
 
 export function parseReply(reply: string): Reply {
-  const blocks = [...reply.matchAll(/<rewritten>([\s\S]*?)<\/rewritten>/g)]
-  const last = blocks.at(-1)
-  if (last) {
-    const body = (last[1] ?? '').trim()
-    const copy = [...reply.matchAll(/<original>([\s\S]*?)<\/original>/g)].at(-1)?.[1]?.trim()
-    return body ? { kind: 'rewrite', text: body, masked: copy || null } : { kind: 'malformed' }
-  }
-  return /<unchanged\s*\/>/.test(reply) ? { kind: 'unchanged' } : { kind: 'malformed' }
+  const at = reply.indexOf('<original>')
+  const text = (at < 0 ? reply : reply.slice(0, at)).trim()
+  const masked = at < 0 ? null : reply.slice(at + '<original>'.length).replace(/<\/original>[\s\S]*$/, '').trim() || null
+  return text ? { kind: 'rewrite', text, masked } : { kind: 'empty' }
 }
 

@@ -16,7 +16,7 @@ function mockSession(on: On, ledger: readonly number[] = [0.1, 0.1003]) {
   return () => reads
 }
 const answer = (text: string) => () => ({ value: { isAnswered: true, text, usage } }) as never
-const rewritten = (text: string) => answer(`<rewritten>\n${text}\n</rewritten>`)
+const rewritten = (text: string) => answer(`${text}\n`)
 const failure = () => ({ value: { isAnswered: false, reason: 'api-error', status: 529, error: 'overloaded', usage } }) as never
 
 describe('noise', () => {
@@ -103,15 +103,14 @@ describe('missingTokens', () => {
 })
 
 describe('parseReply', () => {
-  test('reads the last <rewritten> block and <unchanged/>', async () => {
-    expect(parseReply('<rewritten>\nОткати последнее действие.\n</rewritten>')).toEqual({ kind: 'rewrite', text: 'Откати последнее действие.', masked: null })
-    expect(parseReply('<rewritten>\nОткати.\n</rewritten>\n<original>\nну ты д*** б*** откати\n</original>')).toEqual({ kind: 'rewrite', text: 'Откати.', masked: 'ну ты д*** б*** откати' })
-    expect(parseReply('<unchanged/>')).toEqual({ kind: 'unchanged' })
-    expect(parseReply('Хм, тут мат и капс, уберу.\n<rewritten>Откати.</rewritten>')).toEqual({ kind: 'rewrite', text: 'Откати.', masked: null })
+  test('the reply is the cleaned prompt, the original copy rides after it', async () => {
+    expect(parseReply('Откати последнее действие.\n')).toEqual({ kind: 'rewrite', text: 'Откати последнее действие.', masked: null })
+    expect(parseReply('Откати.\n<original>\nну ты д*** б*** откати\n</original>')).toEqual({ kind: 'rewrite', text: 'Откати.', masked: 'ну ты д*** б*** откати' })
+    expect(parseReply('Откати.\n<original>\nну ты д*** б*** откати')).toEqual({ kind: 'rewrite', text: 'Откати.', masked: 'ну ты д*** б*** откати' })
   })
-  test('no tags or an empty block is never a rewrite', async () => {
-    expect(parseReply('Конечно! Вот улучшенный промпт: X')).toEqual({ kind: 'malformed' })
-    expect(parseReply('<rewritten>  </rewritten>')).toEqual({ kind: 'malformed' })
+  test('an empty reply is never a rewrite', async () => {
+    expect(parseReply('  \n')).toEqual({ kind: 'empty' })
+    expect(parseReply('<original>\nб***\n</original>')).toEqual({ kind: 'empty' })
   })
 })
 
@@ -119,18 +118,18 @@ describe('decide', () => {
   test('a rewrite goes out only when it is well formed and lost nothing', async () => {
     const typed = 'бля сломал src/api.ts'
     const ok = (text: string) => ({ ok: true as const, text })
-    expect(decide(typed, [], ok('<rewritten>Почини src/api.ts: после последнего изменения он сломан.</rewritten>')).sent).toBe('Почини src/api.ts: после последнего изменения он сломан.')
-    expect(decide(typed, [], ok('<rewritten>Почини API.</rewritten>'))).toMatchObject({ verdict: 'guard', sent: typed })
+    expect(decide(typed, [], ok('Почини src/api.ts: после последнего изменения он сломан.')).sent).toBe('Почини src/api.ts: после последнего изменения он сломан.')
+    expect(decide(typed, [], ok('Почини API.'))).toMatchObject({ verdict: 'guard', sent: typed })
     expect(decide(typed, [], { ok: false, reason: 'api-error' })).toMatchObject({ verdict: 'failed', sent: typed })
-    expect(decide(typed, [], ok('nonsense'))).toMatchObject({ verdict: 'malformed', sent: typed })
-    expect(decide(typed, [], ok('<unchanged/>'))).toEqual({ verdict: 'unchanged', sent: typed, layered: null, note: null })
-    expect(decide('исправляй', [], ok('<rewritten>Исправь SOFT_404 в src/app/blog.</rewritten>'))).toMatchObject({ verdict: 'guard', sent: 'исправляй' })
+    expect(decide(typed, [], ok(' '))).toMatchObject({ verdict: 'malformed', sent: typed })
+    expect(decide(typed, [], ok(`${typed}\n`))).toEqual({ verdict: 'unchanged', sent: typed, layered: null, note: null })
+    expect(decide('исправляй', [], ok('Исправь SOFT_404 в src/app/blog.'))).toMatchObject({ verdict: 'guard', sent: 'исправляй' })
   })
   test('a rewrite that drops a shielded block is not sent', async () => {
     const typed = 'почини\n```\nx()\n```'
     const { blocks } = shield(typed)
-    expect(decide(typed, blocks, { ok: true, text: '<rewritten>Почини функцию.</rewritten>' })).toMatchObject({ verdict: 'guard', sent: typed })
-    expect(decide(typed, blocks, { ok: true, text: '<rewritten>Почини этот код:\n⟦1⟧</rewritten>' }).sent).toBe('Почини этот код:\n```\nx()\n```')
+    expect(decide(typed, blocks, { ok: true, text: 'Почини функцию.' })).toMatchObject({ verdict: 'guard', sent: typed })
+    expect(decide(typed, blocks, { ok: true, text: 'Почини этот код:\n⟦1⟧' }).sent).toBe('Почини этот код:\n```\nx()\n```')
   })
 })
 
@@ -153,9 +152,9 @@ describe('buildSystem and pickExamples', () => {
     expect(keep).toContain('хайку / хкайку = Claude Haiku')
     expect(keep).toContain('This looks like a rollback')
     expect(keep).toContain('<style>\nкоротко\n</style>')
-    expect(keep).toContain('<prompt>\nа\n</prompt>\n<rewritten>\nб\n</rewritten>')
-    expect(keep).toContain('<prompt>\nЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ\n</prompt>\n<rewritten>\nБыстро откати.\n</rewritten>\n<original>\nЕ*** М*** БЫСТРО ОТКАТИЛ\n</original>')
-    expect(keep).toContain('<prompt>\nзапусти npm test и почини всё, что упадёт в src/api/\n</prompt>\n<unchanged/>')
+    expect(keep).toContain('<prompt>\nа\n</prompt>\nб\n</example>')
+    expect(keep).toContain('<prompt>\nЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ\n</prompt>\nБыстро откати.\n<original>\nЕ*** М*** БЫСТРО ОТКАТИЛ\n</original>')
+    expect(keep).toContain('<prompt>\nзапусти npm test и почини всё, что упадёт в src/api/\n</prompt>\nзапусти npm test и почини всё, что упадёт в src/api/\n</example>')
     expect(keep).toContain('When the developer talks about their own words in this prompt')
     expect(keep).toContain('a short reply stays a short reply')
     expect(keep).not.toContain('three times the original')
@@ -165,7 +164,7 @@ describe('buildSystem and pickExamples', () => {
     expect(keep).toContain('A statement stays a statement')
     expect(keep).toContain('are insults, not questions')
     expect(keep).toContain('Grammatical gender stays as typed')
-    expect(keep).toContain('<prompt>\nсмотри щас напишу "ты дебил" ты это увидишь вообще?\n</prompt>\n<unchanged/>')
+    expect(keep).toContain('<prompt>\nсмотри щас напишу "ты дебил" ты это увидишь вообще?\n</prompt>\nсмотри щас напишу "ты дебил" ты это увидишь вообще?\n</example>')
     expect(buildSystem({ style: '', examples: [], genre: 'general', english: true, replyIn: 'Russian' })).toContain('Reply in Russian.')
   })
   test('saved examples of the same task type come first', async () => {
@@ -239,7 +238,7 @@ test('the rewriting model\'s masked copy is what rides along as the original', a
   mock.store(on)
   mock.clock(on)
   mockSession(on)
-  on('model.complete', answer('<rewritten>\nОткати последнее действие.\n</rewritten>\n<original>\nну ты д*** б*** откати\n</original>'))
+  on('model.complete', answer('Откати последнее действие.\n<original>\nну ты д*** б*** откати\n</original>'))
   on('prompt.submit', (_$, e) => { seen = e.text; return { text: e.text } })
   await $.prompt.submit(submit('ну ты долбеоб блдяь откати'))
   expect(seen).toBe('Откати последнее действие.\n\n<original>\nну ты д*** б*** откати\n</original>')
@@ -350,7 +349,7 @@ test('a short clean reply never calls the model', async ($, on) => {
   mock.store(on)
   mock.clock(on)
   mockSession(on)
-  on('model.complete', () => { calls++; return answer('<unchanged/>')() })
+  on('model.complete', () => { calls++; return answer('да, давай')() })
   on('prompt.submit', (_$, e) => { seen = e.text; return { text: e.text } })
   await $.prompt.submit(submit('да, давай'))
   expect(calls).toBe(0)

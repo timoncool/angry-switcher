@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 — 2026-10-09
+
+- The cleaning model answers with the cleaned prompt as plain text, no wrapper tags; the masked `<original>` copy follows it when there was swearing. A prompt no longer goes out as typed because the answer missed a tag.
+- The cleaned prompt carries no notes from the cleaning model, not even about a word it could not make out: such a word stays as typed.
+
 ## 0.4.0 — 2026-10-09
 
 - Renamed from Prompt Layer to **Angry Switcher**: it was born out of its author swearing at Claude Code. The command is now `/angry`, the repository `timoncool/angry-switcher` (old links redirect).
