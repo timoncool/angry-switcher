@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1 — 2026-10-09
+
+- `/ask` is now `/ask-ds` (DeepSeek): short, and it does not clash with other plugins' `/ask`.
+- The project page tells about the DeepSeek mode and `/ask-ds`.
+
 ## 0.5.0 — 2026-10-09
 
 - `/angry model deepseek` cleans through DeepSeek V4.1 Flash on your own key (set once with `claude plugin configure`, kept in Claude Code's secure storage), so the swearing never reaches Anthropic; `/angry model sonnet` goes back to the subscription. Low reasoning effort: without reasoning DeepSeek kept threats and guessed words.

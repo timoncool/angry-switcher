@@ -462,11 +462,11 @@ test('/angry model deepseek and sonnet switch between the two', { options: { dee
   expect(store.get('model')).toBe('claude-sonnet-5-5')
 })
 
-test('/ask goes to DeepSeek and prints its answer', { options: { deepseek_api_key: 'sk-test' } }, async ($, on) => {
+test('/ask-ds goes to DeepSeek and prints its answer', { options: { deepseek_api_key: 'sk-test' } }, async ($, on) => {
   let body: { messages?: { role: string; content: string }[] } = {}
   mock.store(on)
   on('http.fetch', (_$, e) => { body = JSON.parse((e as { init?: { body?: string } }).init?.body ?? '{}'); return deepseekReply('Вот ответ.') })
-  const r = await $.command.run({ command: 'ask', args: 'напиши стих про утку' } as never) as { text: string }
+  const r = await $.command.run({ command: 'ask-ds', args: 'напиши стих про утку' } as never) as { text: string }
   expect(r.text).toBe('Вот ответ.')
   expect(body.messages).toEqual([{ role: 'user', content: 'напиши стих про утку' }])
 })

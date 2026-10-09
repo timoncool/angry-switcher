@@ -7,6 +7,8 @@ Angry Switcher is a Claude Code plugin. On every prompt it runs a local check, s
 - Install: `/plugin marketplace add timoncool/angry-switcher`, then `/plugin install angry-switcher@angry-switcher`, then `/angry`.
 - Cost: about $0.0015 per cleaned message at API prices; nothing extra on a Claude subscription.
 - Measured: 97-100% of meaning kept on real messages, 1.4 s median per cleaned message.
+- DeepSeek mode: `/angry model deepseek` cleans through DeepSeek V4.1 Flash on the user's own key (saved once with `claude plugin configure angry-switcher@angry-switcher --values-stdin`), so the swearing never reaches Anthropic; `/angry model sonnet` switches back.
+- `/ask-ds <question>`: a question straight to DeepSeek, past Claude, with the same key.
 
 ## Links
 

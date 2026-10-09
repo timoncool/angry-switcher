@@ -68,6 +68,8 @@ T = {
         'num_note': 'The same prompt can come out slightly differently from run to run, so swings of 1-2% between runs are noise, not progress.',
         'sub_h': 'On a subscription it costs nothing extra',
         'sub': 'Angry Switcher runs on your own Claude login. On a Pro or Max plan there is nothing to pay on top: its calls count against the same plan, and Sonnet at low effort is cheap enough that you will not notice them. Attaching your original adds about a hundred tokens to a message, while one answer of the main model reads hundreds of thousands.',
+        'deep_h': 'Or DeepSeek on your own key',
+        'deep': 'Prefer that your swearing never reaches Anthropic at all? The cleaning can run on DeepSeek V4.1 Flash with your own API key. Save the key once with the command below (it goes to Claude Code\'s secure storage), then /angry model deepseek switches the layer and /angry model sonnet switches it back. It is slower: 3.4 s per message against 1.9 s for Sonnet on the same 22 real messages, and about one message in ten misses the 8 s limit and goes out as typed. DeepSeek bills your key, about $0.30 per million input tokens and $1.20 per million output tokens. The same key powers /ask-ds: a question straight to DeepSeek, past Claude, for when Claude declines something.',
         'pc_h': 'Good and not so good',
         'pros_h': 'Good', 'cons_h': 'Not so good',
         'pros': [
@@ -104,6 +106,8 @@ T = {
             ('/angry on | off', 'turn it on or off'),
             ('/angry original on | off', 'attach your original to the clean text'),
             ('/angry card on | off', 'the "you typed / sent" card in the transcript'),
+            ('/angry model sonnet | deepseek', 'clean with Sonnet on your plan or DeepSeek on your key'),
+            ('/ask-ds <question>', 'ask DeepSeek directly, past Claude'),
             ('/angry lang keep | en', 'keep your language or send prompts in English'),
             ('/angry style <rules>', 'your own rewrite rules'),
             ('/angry good | fix <text>', 'save the last rewrite, or your fix, as an example'),
@@ -117,7 +121,8 @@ T = {
             ('Does Claude still see my swearing?', 'No. Your original rides along under the clean text with every swear word cut to its first letter, so Claude sees your typos and word order but not the swearing. /angry original off leaves the original out entirely.'),
             ('What if it gets my meaning wrong?', 'It happens in a few percent of messages, mostly with badly garbled typos. Two things protect you: a guard sends your original if a path, number or identifier is lost, and the original rides along so Claude can see what you actually typed.'),
             ('Which languages does it handle?', 'Whatever Claude reads. It was tested on Russian and English, including Russian typed on the English keyboard layout and Russian in Latin letters. It keeps your language unless you ask for English with /angry lang en.'),
-            ('Does my text go anywhere else?', 'No. The rewrite is one call through the same Claude login Claude Code already uses. No other server, no API key, no telemetry.'),
+            ('Does my text go anywhere else?', 'Not by default. The rewrite is one call through the same Claude login Claude Code already uses, with no other server and no telemetry. Only if you switch to DeepSeek with /angry model deepseek do your prompts go to DeepSeek\'s servers, on your own key.'),
+            ('What if Claude refuses a request?', '/ask-ds <question> sends it straight to DeepSeek with your key and prints the answer in the chat; Claude takes no part in that call. It needs the same DeepSeek key as the DeepSeek mode.'),
             ('Does swearing make Claude worse?', 'The studies we read found almost no effect of tone on answer quality. The point of the plugin is that a rant carries no diagnostics; a clean prompt does.'),
         ],
         'author_h': 'Who made this',
@@ -178,6 +183,8 @@ T = {
         'num_note': 'Один и тот же промпт от прогона к прогону выходит чуть по-разному, поэтому колебания на 1-2% между прогонами это шум, а не прогресс.',
         'sub_h': 'На подписке никаких доплат',
         'sub': 'Angry Switcher работает через твой логин Claude. На Pro или Max доплачивать ничего не нужно: его вызовы идут из той же подписки, а Sonnet на низком уровне размышлений настолько дешёвый, что это даже не ощущается. Оригинал рядом добавляет к сообщению около сотни токенов, а один ответ основной модели читает сотни тысяч.',
+        'deep_h': 'Или DeepSeek по своему ключу',
+        'deep': 'Хочешь, чтобы мат вообще не доходил до Anthropic? Чистку можно перевести на DeepSeek V4.1 Flash по твоему ключу. Задай его один раз командой ниже (он уходит в защищённое хранилище Claude Code), потом /angry model deepseek переключает слой, а /angry model sonnet возвращает обратно. Это медленнее: 3,4 с на сообщение против 1,9 с у Sonnet на тех же 22 настоящих сообщениях, и примерно каждое десятое не укладывается в 8 с и уходит как написано. DeepSeek списывает с твоего ключа около $0.30 за миллион входных токенов и $1.20 за миллион выходных. Тот же ключ работает для /ask-ds: вопрос прямо в DeepSeek, мимо Claude, когда Claude в чём-то отказывает.',
         'pc_h': 'Плюсы и минусы',
         'pros_h': 'Плюсы', 'cons_h': 'Минусы',
         'pros': [
@@ -214,6 +221,8 @@ T = {
             ('/angry on | off', 'включить или выключить'),
             ('/angry original on | off', 'прикладывать оригинал к чистому тексту'),
             ('/angry card on | off', 'карточка «ты написал / ушло» в переписке'),
+            ('/angry model sonnet | deepseek', 'чистить через Sonnet по подписке или DeepSeek по своему ключу'),
+            ('/ask-ds <вопрос>', 'спросить DeepSeek напрямую, мимо Claude'),
             ('/angry lang keep | en', 'оставлять язык или отправлять на английском'),
             ('/angry style <правила>', 'твои правила переписывания'),
             ('/angry good | fix <текст>', 'сохранить последнее переписывание или свою правку как образец'),
@@ -227,7 +236,8 @@ T = {
             ('Claude всё равно видит мой мат?', 'Нет. Оригинал идёт под чистым текстом, но мат в нём закрыт звёздочками, так что Claude видит твои опечатки и порядок слов, а не ругань. /angry original off убирает оригинал совсем.'),
             ('А если он исказит смысл?', 'Такое бывает в нескольких процентах сообщений, чаще всего на сильно искажённых опечатках. Защищают две вещи: если потерялся путь, число или идентификатор, уходит оригинал, а сам оригинал всегда идёт рядом, и Claude видит, что ты набрал на самом деле.'),
             ('Какие языки он понимает?', 'Любые, которые понимает Claude. Проверен на русском и английском, включая русский в английской раскладке и русский латиницей. Язык он сохраняет, если не попросить английский командой /angry lang en.'),
-            ('Мой текст куда-то ещё уходит?', 'Нет. Переписывание это один вызов через тот же логин Claude, что уже использует Claude Code. Ни другого сервера, ни API-ключа, ни телеметрии.'),
+            ('Мой текст куда-то ещё уходит?', 'По умолчанию нет. Переписывание это один вызов через тот же логин Claude, что уже использует Claude Code, без других серверов и телеметрии. Только если переключиться на DeepSeek командой /angry model deepseek, промпты уходят на серверы DeepSeek, по твоему ключу.'),
+            ('А если Claude откажет в запросе?', '/ask-ds <вопрос> отправляет его прямо в DeepSeek по твоему ключу и печатает ответ в чат; Claude в этом вызове не участвует. Нужен тот же ключ DeepSeek, что и для режима DeepSeek.'),
             ('Мат делает Claude хуже?', 'Исследования, которые мы читали, почти не нашли влияния тона на качество ответа. Смысл плагина в другом: в ругани нет диагностики, а в чистом промпте есть.'),
         ],
         'author_h': 'Кто сделал',
@@ -240,6 +250,7 @@ T = {
 
 LINKS = [('GitHub', 'https://github.com/timoncool'), ('Telegram @nerual_dreming', 'https://t.me/nerual_dreming'), ('Telegram @neuroport', 'https://t.me/neuroport'), ('ArtGeneration.me', 'https://artgeneration.me')]
 DONATE = 'https://github.com/timoncool/ACE-Step-Studio/blob/master/DONATE.md'
+DEEPSEEK_KEY_CMD = 'echo \'{"deepseek_api_key":"sk-..."}\' | claude plugin configure angry-switcher@angry-switcher --values-stdin'
 STARS = 'https://img.shields.io/github/stars/timoncool/angry-switcher?style=flat&amp;label=%E2%98%85&amp;color=262b34'
 
 CSS = """
@@ -314,6 +325,9 @@ tr.win td { color: var(--cyan); }
 .note { margin: 22px 0 0; color: var(--muted); font-size: 14px; max-width: 80ch; }
 .pay { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 40px; align-items: start; }
 .pay p { margin: 0; font-size: 17px; max-width: 66ch; }
+.pay + .pay { margin-top: 56px; }
+.pay > div { min-width: 0; }
+.pay .cmd { margin-top: 20px; }
 .pc { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; }
 .pc h3 { margin: 0 0 14px; font-size: 18px; }
 .pc ul { list-style: none; margin: 0; padding: 0; }
@@ -326,11 +340,11 @@ tr.win td { color: var(--cyan); }
 .res a span:last-child { color: var(--cyan); white-space: nowrap; }
 .res a:hover span:first-child { color: #fff; }
 .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; max-width: 820px; counter-reset: i; }
-.steps li { counter-increment: i; }
+.steps li { counter-increment: i; min-width: 0; }
 .steps p { margin: 0 0 8px; }
 .steps p::before { content: counter(i) ". "; color: var(--cyan); font-weight: 700; }
 .cmd { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); padding: 10px 10px 10px 16px; }
-.cmd code { flex: 1; font: inherit; overflow-x: auto; white-space: nowrap; }
+.cmd code { flex: 1; min-width: 0; font: inherit; overflow-x: auto; white-space: nowrap; }
 .cmd code::before { content: "> "; color: var(--red); }
 .cmd button { flex: none; height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
 .cmd button:hover { color: var(--text); border-color: var(--muted); }
@@ -524,6 +538,7 @@ def page(lang):
 
   <section id="cost">
     <div class="pay"><h2>{E(t['sub_h'])}</h2><p>{E(t['sub'])}</p></div>
+    <div class="pay"><h2>{E(t['deep_h'])}</h2><div><p>{E(t['deep'])}</p><div class="cmd"><code>{E(DEEPSEEK_KEY_CMD)}</code><button type="button" data-done="{E(t["copied"])}">{E(t["copy"])}</button></div></div></div>
   </section>
 
   <section id="tradeoffs">
@@ -591,6 +606,8 @@ Angry Switcher is a Claude Code plugin. On every prompt it runs a local check, s
 - Install: `/plugin marketplace add timoncool/angry-switcher`, then `/plugin install angry-switcher@angry-switcher`, then `/angry`.
 - Cost: about $0.0015 per cleaned message at API prices; nothing extra on a Claude subscription.
 - Measured: 97-100% of meaning kept on real messages, 1.4 s median per cleaned message.
+- DeepSeek mode: `/angry model deepseek` cleans through DeepSeek V4.1 Flash on the user's own key (saved once with `claude plugin configure angry-switcher@angry-switcher --values-stdin`), so the swearing never reaches Anthropic; `/angry model sonnet` switches back.
+- `/ask-ds <question>`: a question straight to DeepSeek, past Claude, with the same key.
 
 ## Links
 

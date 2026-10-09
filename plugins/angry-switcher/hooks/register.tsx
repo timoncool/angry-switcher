@@ -141,7 +141,7 @@ const HELP = [
   '/angry original on | off  прикладывать к переписанному промпту твой оригинал (по умолчанию да)',
   '/angry ab raw | en | off  A/B: половина промптов уходит как написано (raw) или на английском (en); всё в лог',
   '/angry model sonnet | deepseek  модель слоя: Sonnet по подписке (по умолчанию) или DeepSeek по своему ключу; можно и точный id',
-  '/ask <вопрос>           спросить DeepSeek напрямую, мимо Claude (нужен ключ DeepSeek)',
+  '/ask-ds <вопрос>        спросить DeepSeek напрямую, мимо Claude (нужен ключ DeepSeek)',
   '/angry style <текст>    твои правила стиля; /angry style — показать, /angry style clear — стереть',
   '/angry good             сохранить последнее переписывание как образец',
   '/angry fix <текст>      исправить последнее переписывание и сохранить как образец',
@@ -282,7 +282,7 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'angry', description: 'Angry Switcher: /angry help, команды невидимого слоя' })
-    await $.command.register({ name: 'ask', description: 'Angry Switcher: спросить DeepSeek напрямую, мимо Claude', argumentHint: '<вопрос>' })
+    await $.command.register({ name: 'ask-ds', description: 'Angry Switcher: спросить DeepSeek напрямую, мимо Claude', argumentHint: '<вопрос>' })
     await $.tool.register({
       name: 'replay',
       description: 'Angry Switcher test room: rewrites every prompt of a JSONL file (one object per line with a "typed" field) through the layer with its current rules and model, one call per prompt, sends nothing, and writes the results to <file>.out.jsonl.',
@@ -298,9 +298,9 @@ export const register: Register = (on, options) => {
     return { result: await replay($, path.trim(), deepseekKey, chosen) }
   })
 
-  on('command.run', { command: 'ask' }, async ($, e) => {
+  on('command.run', { command: 'ask-ds' }, async ($, e) => {
     const question = e.args.trim()
-    if (!question) return { text: 'Напиши вопрос: /ask <вопрос>. Ответит DeepSeek, Claude в этом не участвует.' }
+    if (!question) return { text: 'Напиши вопрос: /ask-ds <вопрос>. Ответит DeepSeek, Claude в этом не участвует.' }
     $.ui.status('Angry Switcher: спрашиваю DeepSeek…')
     try {
       const r = await deepseek($, deepseekKey, { model: MODEL_ALIASES.deepseek!, prompt: question, maxTokens: ASK_MAX_TOKENS })
