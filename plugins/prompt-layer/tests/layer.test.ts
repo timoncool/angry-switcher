@@ -160,6 +160,8 @@ describe('buildSystem and pickExamples', () => {
     expect(keep).not.toContain('three times the original')
     expect(keep).toContain('when the swearing names no reason, drop it and put nothing in its place')
     expect(keep).toContain('"русским языком (сказал)" = plainly')
+    expect(keep).toContain('серена = Serena')
+    expect(keep).toContain('A statement stays a statement')
     expect(keep).toContain('<prompt>\nсмотри щас напишу "ты дебил" ты это увидишь вообще?\n</prompt>\n<unchanged/>')
     expect(buildSystem({ style: '', examples: [], genre: 'general', english: true, replyIn: 'Russian' })).toContain('Reply in Russian.')
   })
