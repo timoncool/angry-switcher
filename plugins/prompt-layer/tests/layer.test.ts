@@ -162,6 +162,7 @@ describe('buildSystem and pickExamples', () => {
     expect(keep).toContain('"русским языком (сказал)" = plainly')
     expect(keep).toContain('серена = Serena')
     expect(keep).toContain('A statement stays a statement')
+    expect(keep).toContain('are insults, not questions')
     expect(keep).toContain('<prompt>\nсмотри щас напишу "ты дебил" ты это увидишь вообще?\n</prompt>\n<unchanged/>')
     expect(buildSystem({ style: '', examples: [], genre: 'general', english: true, replyIn: 'Russian' })).toContain('Reply in Russian.')
   })
