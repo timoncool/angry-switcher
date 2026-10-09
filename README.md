@@ -48,6 +48,18 @@ Or by hand:
 
 **On a Claude subscription it costs nothing extra.** The plugin runs on your own Claude login, so on Pro or Max its calls come out of the same plan, and Sonnet at low effort is cheap enough that you will not notice them: about $0.0015 per cleaned message at API prices.
 
+### DeepSeek instead of Sonnet
+
+The cleaning can run on DeepSeek V4.1 Flash with your own API key, so your swearing never reaches Anthropic at all. Save the key once, in a terminal (it goes to Claude Code's secure storage, not to a file):
+
+```bash
+echo '{"deepseek_api_key":"sk-..."}' | claude plugin configure angry-switcher@angry-switcher --values-stdin
+```
+
+Then `/angry model deepseek` switches the layer to DeepSeek and `/angry model sonnet` switches it back. The trade-off, measured on the same 22 real messages: Sonnet at low effort takes 1.9 s per message (median), DeepSeek at low reasoning effort 3.4 s with a long tail, and about one message in ten does not make the 8 s limit and goes out as typed. Without reasoning DeepSeek answers in 1 s but keeps threats and guesses words, so the layer does not use that mode. DeepSeek bills your key: about $0.30 per million input tokens and $1.20 per million output tokens at its standard rate.
+
+`/ask <question>` sends a question straight to DeepSeek, past Claude, with the same key: handy when Claude declines something.
+
 ## Usage
 
 | Command | What it does |
@@ -56,6 +68,8 @@ Or by hand:
 | `/angry on` / `off` | turn it on or off |
 | `/angry original on` / `off` | attach your original to the clean text (on by default) |
 | `/angry card on` / `off` | before/after card in the transcript |
+| `/angry model sonnet` / `deepseek` | clean with Sonnet on your subscription (default) or DeepSeek on your key |
+| `/ask <question>` | ask DeepSeek directly, past Claude |
 | `/angry lang keep` / `en` | keep your language or send prompts in English (answers stay in yours) |
 | `/angry style <rules>` | your own rewrite rules |
 | `/angry good` / `fix <text>` | save the last rewrite, or your corrected version, as an example |

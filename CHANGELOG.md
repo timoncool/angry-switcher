@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0 — 2026-10-09
+
+- `/angry model deepseek` cleans through DeepSeek V4.1 Flash on your own key (set once with `claude plugin configure`, kept in Claude Code's secure storage), so the swearing never reaches Anthropic; `/angry model sonnet` goes back to the subscription. Low reasoning effort: without reasoning DeepSeek kept threats and guessed words.
+- `/ask <question>`: a question straight to DeepSeek, past Claude.
+- The part of the cleaning prompt that varies by task now comes last, so the fixed part is served from the cache.
+- `/angry` shows whether a DeepSeek key is set; its last line reads `все команды: /angry help`.
+- The `replay` tool takes an optional model, to compare models on the same prompts.
+
 ## 0.4.2 — 2026-10-09
 
 - The cleaned prompt goes back inside `<rewritten>` tags, read leniently: the last block counts, a missing closing tag is fine, and a reply with no tags is taken whole. Without the tags the cleaning model sometimes wrote its own reasoning into the prompt.

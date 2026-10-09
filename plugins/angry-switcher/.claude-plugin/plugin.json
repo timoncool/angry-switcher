@@ -1,6 +1,6 @@
 {
   "name": "angry-switcher",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "Swear at Claude Code all you like: every prompt is cleaned before Claude reads it. Typos, translit, the wrong keyboard layout, swearing and CAPS go; the meaning, paths and numbers stay; your original rides along so nothing is lost.",
   "author": {
     "name": "timoncool",
@@ -15,5 +15,14 @@
     "keyboard-layout",
     "ab-test"
   ],
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "deepseek_api_key": {
+      "type": "string",
+      "title": "DeepSeek API key",
+      "description": "Only for /angry model deepseek and /ask: with it the cleaning and the questions go to DeepSeek servers instead of your Claude subscription.",
+      "sensitive": true,
+      "required": false
+    }
+  }
 }

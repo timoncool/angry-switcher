@@ -18,6 +18,10 @@ const MAX_CHARS = 2500
 const MAX_LOG = 500
 const MAX_EXAMPLES = 30
 const DEFAULT_MODEL = 'claude-sonnet-5-5'
+const MODEL_ALIASES: Record<string, string> = { sonnet: DEFAULT_MODEL, deepseek: 'deepseek-flash' }
+const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions'
+const NO_DEEPSEEK_KEY = 'нет ключа DeepSeek: задай его в терминале командой claude plugin configure angry-switcher@angry-switcher'
+const ASK_MAX_TOKENS = 8000
 const TIMEOUT_MS = 8_000
 const MAX_TOKENS = 4000
 const BREAKER_FAILS = 3
@@ -136,7 +140,8 @@ const HELP = [
   '/angry lang keep | en   оставлять язык или переводить промпт на английский (ответ остаётся на твоём языке)',
   '/angry original on | off  прикладывать к переписанному промпту твой оригинал (по умолчанию да)',
   '/angry ab raw | en | off  A/B: половина промптов уходит как написано (raw) или на английском (en); всё в лог',
-  '/angry model <id>       модель слоя (по умолчанию claude-sonnet-5-5)',
+  '/angry model sonnet | deepseek  модель слоя: Sonnet по подписке (по умолчанию) или DeepSeek по своему ключу; можно и точный id',
+  '/ask <вопрос>           спросить DeepSeek напрямую, мимо Claude (нужен ключ DeepSeek)',
   '/angry style <текст>    твои правила стиля; /angry style — показать, /angry style clear — стереть',
   '/angry good             сохранить последнее переписывание как образец',
   '/angry fix <текст>      исправить последнее переписывание и сохранить как образец',
@@ -176,40 +181,77 @@ async function sessionId($: EngineInterface) {
   }
 }
 
+type DeepSeekAsk = { model: string; system?: string; prompt: string; maxTokens: number; timeoutMs?: number }
+type DeepSeekReply = { ok: true; text: string; usage: Entry['usage'] } | { ok: false; reason: string }
+type DeepSeekBody = { choices?: { message?: { content?: string } }[]; usage?: { completion_tokens?: number; prompt_cache_hit_tokens?: number; prompt_cache_miss_tokens?: number } }
+
+/** One chat completion at low reasoning effort (without reasoning it keeps threats and guesses words); `timeoutMs` bounds the wait, since the host's fetch takes no signal. */
+async function deepseek($: EngineInterface, key: string, ask: DeepSeekAsk): Promise<DeepSeekReply> {
+  if (!key) return { ok: false, reason: NO_DEEPSEEK_KEY }
+  const call = $.http.fetch(DEEPSEEK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model: ask.model,
+      messages: [...(ask.system ? [{ role: 'system', content: ask.system }] : []), { role: 'user', content: ask.prompt }],
+      max_tokens: ask.maxTokens,
+      thinking: { type: 'enabled' },
+      reasoning_effort: 'low',
+      stream: false,
+    }),
+  })
+  const stop = new AbortController()
+  const r = ask.timeoutMs ? await Promise.race([call, $.clock.sleep(ask.timeoutMs, { signal: stop.signal }).then(() => null, () => null)]) : await call
+  stop.abort()
+  if (!r) return { ok: false, reason: `DeepSeek не уложился в ${ask.timeoutMs} мс` }
+  if (!r.ok) return { ok: false, reason: `DeepSeek HTTP ${r.status}: ${clip(r.text, 200)}` }
+  const body = JSON.parse(r.text) as DeepSeekBody
+  const text = body.choices?.[0]?.message?.content ?? ''
+  if (!text.trim()) return { ok: false, reason: 'DeepSeek вернул пустой ответ' }
+  const u = body.usage
+  return { ok: true, text, usage: { input: u?.prompt_cache_miss_tokens ?? 0, output: u?.completion_tokens ?? 0, cacheRead: u?.prompt_cache_hit_tokens ?? 0, cacheWrite: 0 } }
+}
+
 type Asked = { result: Layered; usage: Entry['usage']; model: string }
 
-async function rewrite($: EngineInterface, typed: string, own: Shielded, english: boolean): Promise<Asked> {
+async function rewrite($: EngineInterface, typed: string, own: Shielded, english: boolean, deepseekKey: string, modelOverride?: string): Promise<Asked> {
   const genre = genreOf(own.text)
   const examples = pickExamples(await get<Example[]>($, 'examples', []), genre)
   const decoded = wrongLayout(own.text) ? decodeLayout(own.text) : null
   const system = buildSystem({ style: await get($, 'style', ''), examples, genre, english, replyIn: replyLanguage(decoded ?? own.text) })
-  const model = await get($, 'model', DEFAULT_MODEL)
+  const model = modelOverride ?? (await get($, 'model', DEFAULT_MODEL))
+  const prompt = [`<prompt>\n${own.text}\n</prompt>`, decoded && `<decoded_layout>\n${decoded}\n</decoded_layout>`].filter(Boolean).join('\n\n')
+  const reference = decoded ? `${typed}\n${decoded}` : typed
   try {
+    if (model.startsWith('deepseek')) {
+      const r = await deepseek($, deepseekKey, { model, system, prompt, maxTokens: MAX_TOKENS, timeoutMs: TIMEOUT_MS })
+      return { result: decide(typed, own.blocks, r.ok ? { ok: true, text: r.text } : { ok: false, reason: r.reason }, reference), usage: r.ok ? r.usage : { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, model }
+    }
     const r = await $.model.complete({
       model,
       system: [{ text: system, cache: true }],
-      prompt: [`<prompt>\n${own.text}\n</prompt>`, decoded && `<decoded_layout>\n${decoded}\n</decoded_layout>`].filter(Boolean).join('\n\n'),
+      prompt,
       maxTokens: MAX_TOKENS,
       effort: 'low',
       timeoutMs: TIMEOUT_MS,
     })
     const usage = { input: r.usage.input_tokens, output: r.usage.output_tokens, cacheRead: r.usage.cache_read_input_tokens, cacheWrite: r.usage.cache_creation_input_tokens }
-    return { result: decide(typed, own.blocks, r.isAnswered ? { ok: true, text: r.text } : { ok: false, reason: r.reason }, decoded ? `${typed}\n${decoded}` : typed), usage, model }
+    return { result: decide(typed, own.blocks, r.isAnswered ? { ok: true, text: r.text } : { ok: false, reason: r.reason }, reference), usage, model }
   } catch (err) {
     return { result: decide(typed, own.blocks, { ok: false, reason: String(err) }), usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, model }
   }
 }
 
 /** The test room: every prompt of a JSONL file through the layer, one call each, nothing sent; results beside the file. */
-async function replay($: EngineInterface, file: string): Promise<string> {
+async function replay($: EngineInterface, file: string, deepseekKey: string, model?: string): Promise<string> {
   const items = (await $.fs.read(file)).split('\n').filter(l => l.trim()).map(l => JSON.parse(l) as { typed: string })
   const out: string[] = []
   for (const [i, it] of items.entries()) {
     $.ui.status(`Angry Switcher: replay ${i + 1}/${items.length}`)
     const own = shield(it.typed)
     const t0 = await $.clock.now()
-    const { result, usage, model } = await rewrite($, it.typed, own, (await get($, 'lang', 'keep')) === 'en')
-    out.push(JSON.stringify({ ...it, noise: noise(own.text), genre: genreOf(own.text), ...result, ms: (await $.clock.now()) - t0, model, usage }))
+    const asked = await rewrite($, it.typed, own, (await get($, 'lang', 'keep')) === 'en', deepseekKey, model)
+    out.push(JSON.stringify({ ...it, noise: noise(own.text), genre: genreOf(own.text), ...asked.result, ms: (await $.clock.now()) - t0, model: asked.model, usage: asked.usage }))
   }
   $.ui.status(undefined)
   const path = `${file.replace(/\.jsonl$/, '')}.out.jsonl`
@@ -233,24 +275,39 @@ const norm = (s: string) => s.trim().replace(/\s+/g, ' ')
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 const replyLanguage = (text: string) => (/[а-яё]/i.test(text) ? 'Russian' : 'the language of the conversation')
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  const deepseekKey = typeof options.deepseek_api_key === 'string' ? options.deepseek_api_key.trim() : ''
   let failStreak = 0
   let pausedUntil = 0
 
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'angry', description: 'Angry Switcher: /angry help, команды невидимого слоя' })
+    await $.command.register({ name: 'ask', description: 'Angry Switcher: спросить DeepSeek напрямую, мимо Claude', argumentHint: '<вопрос>' })
     await $.tool.register({
       name: 'replay',
       description: 'Angry Switcher test room: rewrites every prompt of a JSONL file (one object per line with a "typed" field) through the layer with its current rules and model, one call per prompt, sends nothing, and writes the results to <file>.out.jsonl.',
-      inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'Absolute path of the JSONL file' } }, required: ['path'] },
+      inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'Absolute path of the JSONL file' }, model: { type: 'string', description: 'Model to run instead of the layer\'s current one: sonnet, deepseek or an exact id' } }, required: ['path'] },
     })
     return next(e)
   })
 
   on('tool.call', { tool: 'mcp__angry-switcher__replay' }, async ($, e) => {
-    const path = (e as { path?: unknown }).path
+    const { path, model } = e as { path?: unknown; model?: unknown }
     if (typeof path !== 'string' || !path.trim()) return { deny: 'path: absolute path of a JSONL file with a "typed" field per line' }
-    return { result: await replay($, path.trim()) }
+    const chosen = typeof model === 'string' && model.trim() ? (MODEL_ALIASES[model.trim().toLowerCase()] ?? model.trim()) : undefined
+    return { result: await replay($, path.trim(), deepseekKey, chosen) }
+  })
+
+  on('command.run', { command: 'ask' }, async ($, e) => {
+    const question = e.args.trim()
+    if (!question) return { text: 'Напиши вопрос: /ask <вопрос>. Ответит DeepSeek, Claude в этом не участвует.' }
+    $.ui.status('Angry Switcher: спрашиваю DeepSeek…')
+    try {
+      const r = await deepseek($, deepseekKey, { model: MODEL_ALIASES.deepseek!, prompt: question, maxTokens: ASK_MAX_TOKENS })
+      return { text: r.ok ? r.text : `DeepSeek не ответил: ${r.reason}.` }
+    } finally {
+      $.ui.status(undefined)
+    }
   })
 
   on('command.run', { command: 'angry' }, async ($, e) => {
@@ -271,7 +328,11 @@ export const register: Register = on => {
     if (sub === 'lang' && (flag === 'keep' || flag === 'en')) await $.store.set('lang', flag)
     if (sub === 'ab' && (flag === 'raw' || flag === 'en' || flag === 'off')) await $.store.set('ab', flag)
     if (sub === 'original' && (flag === 'on' || flag === 'off')) await $.store.set('original', flag === 'on')
-    if (sub === 'model' && tail) await $.store.set('model', tail)
+    if (sub === 'model' && tail) {
+      const model = MODEL_ALIASES[flag] ?? tail
+      if (model.startsWith('deepseek') && !deepseekKey) return { text: `Модель не переключена: ${NO_DEEPSEEK_KEY}.` }
+      await $.store.set('model', model)
+    }
     if (sub === 'style') {
       if (flag === 'clear') await $.store.set('style', '')
       else if (tail) await $.store.set('style', tail)
@@ -299,7 +360,7 @@ export const register: Register = on => {
     }
     if (sub === 'replay') {
       if (!tail) return { text: 'Укажи файл: /angry replay <путь к JSONL с полем typed>' }
-      return { text: await replay($, tail) }
+      return { text: await replay($, tail, deepseekKey) }
     }
     if (sub === 'report') return { text: report(log) }
     if (sub === 'cost') {
@@ -317,11 +378,11 @@ export const register: Register = on => {
     return {
       text: [
         `Angry Switcher: ${enabled ? 'ВКЛ' : 'ВЫКЛ'}${pausedUntil > now ? `, на паузе ещё ${Math.ceil((pausedUntil - now) / 60_000)} мин после сбоев модели` : ''}`,
-        `модель: ${await get($, 'model', DEFAULT_MODEL)}, язык: ${await get($, 'lang', 'keep')}, A/B: ${await get($, 'ab', 'off')}, оригинал рядом: ${(await get($, 'original', true)) !== false ? 'да' : 'нет'}`,
+        `модель: ${await get($, 'model', DEFAULT_MODEL)}, ключ DeepSeek: ${deepseekKey ? 'есть' : 'нет'}, язык: ${await get($, 'lang', 'keep')}, A/B: ${await get($, 'ab', 'off')}, оригинал рядом: ${(await get($, 'original', true)) !== false ? 'да' : 'нет'}`,
         `карточка: ${(await get($, 'card', true)) ? 'да' : 'нет'}, стиль: ${(await get($, 'style', '')) ? 'задан' : 'нет'}, образцов: ${(await get<Example[]>($, 'examples', [])).length}, записей в логе: ${log.length}`,
         `последний источник промпта: ${await get($, 'lastOrigin', '-')}`,
         spendLine(log, now - DAY_MS, 'траты слоя за 24 часа'),
-        '/angry help: все команды',
+        'все команды: /angry help',
       ].join('\n'),
     }
   })
@@ -355,7 +416,7 @@ export const register: Register = on => {
     $.ui.status('Angry Switcher: переписываю…')
     let asked: Asked
     try {
-      asked = await rewrite($, typed, own, arm === 'en')
+      asked = await rewrite($, typed, own, arm === 'en', deepseekKey)
     } finally {
       $.ui.status(undefined)
     }

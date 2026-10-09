@@ -415,3 +415,58 @@ test('the transcript row shows what was typed and what was sent', async ($, on) 
     await ui.unmount()
   }
 })
+
+const deepseekReply = (content: string) => ({ value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ choices: [{ message: { content } }], usage: { completion_tokens: 12, prompt_cache_hit_tokens: 2900, prompt_cache_miss_tokens: 40 } }) } }) as never
+
+test('the deepseek model cleans through DeepSeek at low reasoning effort', { options: { deepseek_api_key: 'sk-test' } }, async ($, on) => {
+  let seen = ''
+  let sent: { url: string; init?: { headers?: Record<string, string>; body?: string } } = { url: '' }
+  let claude = 0
+  const store = new Map<string, unknown>([['model', 'deepseek-flash'], ['original', false]])
+  on('store.get', (_$, e) => ({ value: store.get(e.key) }) as never)
+  on('store.set', (_$, e) => { store.set(e.key, e.value); return { value: undefined } as never })
+  mock.clock(on)
+  mockSession(on)
+  on('model.complete', () => { claude++; return rewritten('X')() })
+  on('http.fetch', (_$, e) => { sent = e as never; return deepseekReply('<rewritten>\nОткати последнее действие.\n</rewritten>') })
+  on('prompt.submit', (_$, e) => { seen = e.text; return { text: e.text } })
+  await $.prompt.submit(submit('ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ'))
+  const body = JSON.parse(sent.init?.body ?? '{}')
+  expect(seen).toBe('Откати последнее действие.')
+  expect(claude).toBe(0)
+  expect(sent.url).toBe('https://api.deepseek.com/chat/completions')
+  expect(sent.init?.headers?.Authorization).toBe('Bearer sk-test')
+  expect(body.model).toBe('deepseek-flash')
+  expect(body.thinking).toEqual({ type: 'enabled' })
+  expect(body.reasoning_effort).toBe('low')
+  expect(body.messages[0].role).toBe('system')
+  expect((store.get('log') as Entry[])[0]).toMatchObject({ model: 'deepseek-flash', usage: { input: 40, output: 12, cacheRead: 2900, cacheWrite: 0 } })
+})
+
+test('without a DeepSeek key the model does not switch', async ($, on) => {
+  mock.store(on)
+  const r = await $.command.run({ command: 'angry', args: 'model deepseek' } as never) as { text: string }
+  expect(r.text).toContain('Модель не переключена')
+  expect(r.text).toContain('claude plugin configure')
+})
+
+test('/angry model deepseek and sonnet switch between the two', { options: { deepseek_api_key: 'sk-test' } }, async ($, on) => {
+  const store = new Map<string, unknown>()
+  on('store.get', (_$, e) => ({ value: store.get(e.key) }) as never)
+  on('store.set', (_$, e) => { store.set(e.key, e.value); return { value: undefined } as never })
+  mock.clock(on)
+  mockSession(on)
+  await $.command.run({ command: 'angry', args: 'model deepseek' } as never)
+  expect(store.get('model')).toBe('deepseek-flash')
+  await $.command.run({ command: 'angry', args: 'model sonnet' } as never)
+  expect(store.get('model')).toBe('claude-sonnet-5-5')
+})
+
+test('/ask goes to DeepSeek and prints its answer', { options: { deepseek_api_key: 'sk-test' } }, async ($, on) => {
+  let body: { messages?: { role: string; content: string }[] } = {}
+  mock.store(on)
+  on('http.fetch', (_$, e) => { body = JSON.parse((e as { init?: { body?: string } }).init?.body ?? '{}'); return deepseekReply('Вот ответ.') })
+  const r = await $.command.run({ command: 'ask', args: 'напиши стих про утку' } as never) as { text: string }
+  expect(r.text).toBe('Вот ответ.')
+  expect(body.messages).toEqual([{ role: 'user', content: 'напиши стих про утку' }])
+})

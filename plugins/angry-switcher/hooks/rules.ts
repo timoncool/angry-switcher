@@ -61,9 +61,9 @@ const shot = (x: Example) => {
 
 export function buildSystem(ask: Ask): string {
   const parts = [ROLE, RULES, GLOSSARY, ask.english ? TO_ENGLISH(ask.replyIn) : KEEP_LANGUAGE, OUTPUT]
+  parts.push(`<examples>\n${[...BUILT_IN, ...ask.examples].map(shot).join('\n')}\n</examples>`)
   const hint = GENRE_HINT[ask.genre]
   if (hint) parts.push(`<task_type>${hint}</task_type>`)
-  parts.push(`<examples>\n${[...BUILT_IN, ...ask.examples].map(shot).join('\n')}\n</examples>`)
   if (ask.style.trim()) parts.push(`The developer's own style rules; follow them where they differ from the rules above:\n<style>\n${ask.style.trim()}\n</style>`)
   return parts.join('\n\n')
 }
