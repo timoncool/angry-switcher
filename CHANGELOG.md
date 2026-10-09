@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 — 2026-10-09
+
+- Default model is now `claude-sonnet-5-5` at low effort: on the 40-prompt replay Haiku 5.5 at low effort misread slang and garbled text (screenshots read as commits, WebRTC missed).
+- Slang glossary (Haiku, Sonnet, MCP, screenshots, WebRTC and others) and a stricter typo rule: fix a word only when it is obvious, keep product and model names.
+- Reply quotes (`<!-- reply -->` and `> ` lines) are hidden from the model like code and pasted text.
+
 ## 0.2.1 — 2026-10-09
 
 - The layer calls `claude-haiku-5-5` by its exact id instead of the `haiku` alias, which maps to Haiku 4.5 on Bedrock, Vertex and Foundry.

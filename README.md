@@ -12,12 +12,12 @@
 
 </div>
 
-Prompt Layer is a Claude Code plugin that rewrites every prompt with Claude Haiku 5.5 before the main model reads it: typos, translit, the wrong keyboard layout, swearing and CAPS are cleaned, the goal goes first, and every path, identifier and number stays character for character. Works in the Claude Code terminal and the Code tab of Claude Desktop, uses your Claude login, no API key.
+Prompt Layer is a Claude Code plugin that rewrites every prompt with Claude Sonnet 5.5 at low effort before the main model reads it: typos, translit, the wrong keyboard layout, swearing and CAPS are cleaned, the goal goes first, and every path, identifier and number stays character for character. Works in the Claude Code terminal and the Code tab of Claude Desktop, uses your Claude login, no API key.
 
 ## Features
 
 - **True replacement** — Claude reads only the rewrite, not your original plus a copy (built on the `prompt.submit` function hook)
-- **Fast** — a local check sends short or already precise prompts straight through; only messy ones go to Haiku at low effort
+- **Fast** — a local check sends short or already precise prompts straight through; only messy ones go to the model
 - **Cleans the surface** — typos, translit (`pochini test`), wrong layout (`ghbdtn` → `привет`), swearing, CAPS, filler
 - **Keeps the meaning** — paths, identifiers, numbers and quotes must survive or the original is sent; code fences and pasted blocks never reach the model
 - **Learns your style** — your own rules plus approved examples, picked by task type
@@ -62,7 +62,7 @@ Or by hand:
 
 1. A local check (no tokens) decides whether the prompt needs work: noise of any length, or a long vague prompt.
 2. Code fences and pasted blocks are swapped for placeholders.
-3. Haiku 5.5 rewrites the prompt with rules written to Anthropic's current prompting guide: reasons instead of bare "never", XML structure, diverse examples.
+3. Sonnet 5.5 (low effort) rewrites the prompt with rules written to Anthropic's current prompting guide: reasons instead of bare "never", XML structure, diverse examples.
 4. The rewrite is sent only if every placeholder and protected detail came back; otherwise your original goes out with a notice.
 5. After three failures in a row the layer pauses for ten minutes instead of slowing you down.
 

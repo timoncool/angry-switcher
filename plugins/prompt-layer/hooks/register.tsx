@@ -16,7 +16,7 @@ const MIN_WORDS = 5
 const MAX_CHARS = 2500
 const MAX_LOG = 500
 const MAX_EXAMPLES = 30
-const DEFAULT_MODEL = 'claude-haiku-5-5'
+const DEFAULT_MODEL = 'claude-sonnet-5-5'
 const TIMEOUT_MS = 8_000
 const MAX_TOKENS = 4000
 const BREAKER_FAILS = 3
@@ -39,12 +39,12 @@ export type Layered = { verdict: Verdict; sent: string; layered: string | null; 
  * puts every shielded block back exactly once and lost no protected detail.
  */
 export function decide(typed: string, blocks: readonly string[], reply: { ok: true; text: string } | { ok: false; reason: string }, reference = typed): Layered {
-  if (!reply.ok) return { verdict: 'failed', sent: typed, layered: null, note: `Haiku не ответил (${reply.reason}); ушло как написано.` }
+  if (!reply.ok) return { verdict: 'failed', sent: typed, layered: null, note: `модель не ответила (${reply.reason}); ушло как написано.` }
   const out = parseReply(reply.text)
   if (out.kind !== 'rewrite') {
     return out.kind === 'unchanged'
       ? { verdict: 'unchanged', sent: typed, layered: null, note: null }
-      : { verdict: 'malformed', sent: typed, layered: null, note: 'ответ Haiku не по формату; ушло как написано.' }
+      : { verdict: 'malformed', sent: typed, layered: null, note: 'ответ модели не по формату; ушло как написано.' }
   }
   const restored = unshield(out.text, blocks)
   if (restored === null) return { verdict: 'guard', sent: typed, layered: out.text, note: 'переписывание потеряло код или вставленный текст; ушло как написано.' }
@@ -136,7 +136,7 @@ const HELP = [
   '/layer card on | off    карточка «ты написал / ушло» в переписке',
   '/layer lang keep | en   оставлять язык или переводить промпт на английский (ответ остаётся на твоём языке)',
   '/layer ab raw | en | off  A/B: половина промптов уходит как написано (raw) или на английском (en); всё в лог',
-  '/layer model <id>       модель слоя (по умолчанию claude-haiku-5-5)',
+  '/layer model <id>       модель слоя (по умолчанию claude-sonnet-5-5)',
   '/layer style <текст>    твои правила стиля; /layer style — показать, /layer style clear — стереть',
   '/layer good             сохранить последнее переписывание как образец',
   '/layer fix <текст>      исправить последнее переписывание и сохранить как образец',
@@ -340,7 +340,7 @@ export const register: Register = on => {
       if (failStreak >= BREAKER_FAILS) {
         pausedUntil = done + BREAKER_PAUSE_MS
         failStreak = 0
-        $.ui.toast(`Prompt Layer: Haiku ${BREAKER_FAILS} раза подряд не ответил, слой на паузе 10 минут; /layer on снимет паузу.`)
+        $.ui.toast(`Prompt Layer: модель ${BREAKER_FAILS} раза подряд не ответила, слой на паузе 10 минут; /layer on снимет паузу.`)
       }
     } else {
       failStreak = 0

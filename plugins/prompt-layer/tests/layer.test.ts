@@ -82,6 +82,15 @@ describe('shield', () => {
   })
 })
 
+describe('shield quotes', () => {
+  test('reply comments and quoted lines are hidden from the model and restored', async () => {
+    const typed = '<!-- reply 1 -->\n> Нужно решение: варианты A и B\n> второй абзац\n\nбери A блядь'
+    const s = shield(typed)
+    expect(s.text).toBe('⟦1⟧\n⟦2⟧\nбери A блядь')
+    expect(unshield('⟦1⟧\n⟦2⟧\nБери A.', s.blocks)).toBe('<!-- reply 1 -->\n> Нужно решение: варианты A и B\n> второй абзац\n\nБери A.')
+  })
+})
+
 describe('missingTokens', () => {
   test('a rewrite has to keep paths, numbers and identifiers', async () => {
     const typed = 'поправь src/api.ts в строке 120, функция fetchUser падает'
@@ -140,6 +149,7 @@ describe('buildSystem and pickExamples', () => {
     const examples: Example[] = [{ typed: 'а', sent: 'б', genre: 'fix' }]
     const keep = buildSystem({ style: 'коротко', examples, genre: 'rollback', english: false, replyIn: 'Russian' })
     expect(keep).toContain('Russian stays Russian')
+    expect(keep).toContain('хайку / хкайку = Claude Haiku')
     expect(keep).toContain('This looks like a rollback')
     expect(keep).toContain('<style>\nкоротко\n</style>')
     expect(keep).toContain('<prompt>\nа\n</prompt>\n<rewritten>\nб\n</rewritten>')

@@ -132,7 +132,7 @@ export function isClearEnough(text: string): boolean {
   return ANCHOR.some(re => re.test(t)) && FINISH.test(t) && !VAGUE.test(t)
 }
 
-const SHIELDED = /<pasted_content\b[^>]*>[\s\S]*?<\/pasted_content\b[^>]*>|```[\s\S]*?```/g
+const SHIELDED = /<pasted_content\b[^>]*>[\s\S]*?<\/pasted_content\b[^>]*>|```[\s\S]*?```|<!--[\s\S]*?-->|(?:^>.*(?:\n|$))+/gm
 
 export type Shielded = { text: string; blocks: string[] }
 
