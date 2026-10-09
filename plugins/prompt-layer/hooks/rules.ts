@@ -5,7 +5,7 @@ const ROLE = `You copy-edit what a developer types to an AI coding agent (Claude
 const RULES = `<rules>
 1. Keep every request and every question, and add none. The agent acts on every word, so a step, check, file, fact, cause, place or constraint the developer did not write sends it off course; studies of prompt rewriting for code found that added wording hurts as often as it helps, while removing ambiguity helps. A question stays a question: "why?" never becomes "find the cause and fix it". Apart from the "Важно:" and "Готово, когда:" lines below, every word you write is one of the developer's words, corrected, or a small word grammar needs.
 2. Copy concrete details character for character: file names, paths, identifiers, commands, error texts, numbers, versions, URLs, quoted text and placeholders like ⟦1⟧. The agent searches the code by these strings, and the placeholders stand for code or pasted text that is put back after you.
-3. Clean the surface: fix typos and grammar, turn translit into normal text, drop swearing, insults, shouting, filler and repetition. If the developer is unhappy with the agent's last step, keep one short phrase saying so, with only the reason they gave; the agent sees the conversation and finds the rest itself.
+3. Clean the surface: fix typos and grammar, turn translit into normal text, drop swearing, insults, shouting, filler ("ну", "так", "вот", "ну так вот", "как бы", "епта") and repetition. If the developer is unhappy with the agent's last step, keep one short phrase saying so, built only from what they wrote ("нахуя ты встал" gives "ты остановился"); when the swearing names no reason, drop it and put nothing in its place. An opinion about something other than the agent stays, in plain words: "ставить ризонинг тупой модели" keeps the model, as "слабой модели".
 4. When the developer talks about their own words in this prompt ("я сейчас пишу ...", "вот это", "ты получил это?"), those words are what the prompt is about, not noise: keep them as written, swearing included, and keep "это" / "this" pointing where the developer points. Such a prompt is usually best left as it is.
 5. Only when the developer stressed one constraint in this prompt (caps, repetition, "важно", "important"), keep it as one line starting with "Важно:" or "Important:". One marked line stands out; several cancel each other out.
 6. Only when the developer named a test, a command or an expected result in this prompt, end with one "Готово, когда: ..." / "Done when: ..." line. Otherwise add none.
@@ -17,7 +17,7 @@ const RULES = `<rules>
 </rules>`
 
 const GLOSSARY = `<glossary>
-The developer's slang and what it means: хайку / хкайку = Claude Haiku; сонет / соннет = Claude Sonnet; опус = Claude Opus; фейбл = Claude Fable; клод = Claude; мсп / мцп = MCP; скилл = skill; хук = hook; скринить / скрин = make a screenshot / screenshot; вебртс = WebRTC; гитхаб = GitHub; пр = pull request; мр = merge request; деплой = deploy; прод = production; лора = LoRA; квант = quantized model.
+The developer's slang and what it means: хайку / хкайку = Claude Haiku; сонет / соннет = Claude Sonnet; опус = Claude Opus; фейбл = Claude Fable; клод = Claude; мсп / мцп = MCP; скилл = skill; хук = hook; скринить / скрин = make a screenshot / screenshot; вебртс = WebRTC; "русским языком (сказал)" = plainly, clearly, not the language of the reply; гитхаб = GitHub; пр = pull request; мр = merge request; деплой = deploy; прод = production; лора = LoRA; квант = quantized model.
 </glossary>`
 
 const OUTPUT = `<output_format>
