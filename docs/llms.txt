@@ -1,0 +1,16 @@
+# Angry Switcher
+
+> A Claude Code plugin that cleans every prompt before Claude reads it: typos, translit, wrong keyboard layout, swearing and caps go, the meaning stays.
+
+Angry Switcher is a Claude Code plugin. On every prompt it runs a local check, sets code and quotes aside, has Claude Sonnet 5.5 at low effort copy-edit the text with as few changes as possible, verifies that every path, identifier and number survived, and sends the clean text with the user's original attached in an <original> block.
+
+- Install: `/plugin marketplace add timoncool/angry-switcher`, then `/plugin install angry-switcher@angry-switcher`, then `/angry`.
+- Cost: about $0.0015 per cleaned message at API prices; nothing extra on a Claude subscription.
+- Measured: 97-99% of meaning kept on real messages, 1.4 s median per cleaned message.
+
+## Links
+
+- [Repository](https://github.com/timoncool/angry-switcher)
+- [Page in English](https://timoncool.github.io/angry-switcher/)
+- [Page in Russian](https://timoncool.github.io/angry-switcher/ru.html)
+- [Changelog](https://github.com/timoncool/angry-switcher/blob/main/CHANGELOG.md)

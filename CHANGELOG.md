@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — 2026-10-09
+
+- Renamed from Prompt Layer to **Angry Switcher**: it was born out of its author swearing at Claude Code. The command is now `/angry`, the repository `timoncool/angry-switcher` (old links redirect).
+- Your original rides along: a cleaned prompt now ends with an `<original>` block holding your own words, and Claude is told that where the two differ in meaning, the original is what you meant. `/angry original off` sends the rewrite alone. Costs about a hundred tokens a message against a context of hundreds of thousands.
+- Grammatical gender is never guessed: an ambiguous typo keeps the form you typed.
+- Demo GIFs in both READMEs, made with HyperFrames from real rewrites.
+
 ## 0.3.1 — 2026-10-09
 
 - Rewrite as a minimal copy-edit: every word of the rewrite is one of the user's words, corrected. Tested on 91 real prompts from live chats: meaning kept in 98–100% against 80% for 0.3.0.

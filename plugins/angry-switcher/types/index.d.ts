@@ -36,6 +36,6 @@ export type Entry = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'prompt-layer': { cards: Card[]; open: string | null }
+    'angry-switcher': { cards: Card[]; open: string | null }
   }
 }

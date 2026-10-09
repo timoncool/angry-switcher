@@ -1,0 +1,19 @@
+{
+  "name": "angry-switcher",
+  "version": "0.4.0",
+  "description": "Swear at Claude Code all you like: every prompt is cleaned before Claude reads it. Typos, translit, the wrong keyboard layout, swearing and CAPS go; the meaning, paths and numbers stay; your original rides along so nothing is lost.",
+  "author": {
+    "name": "timoncool",
+    "url": "https://github.com/timoncool"
+  },
+  "license": "MIT",
+  "keywords": [
+    "prompting",
+    "rewrite",
+    "typos",
+    "profanity",
+    "keyboard-layout",
+    "ab-test"
+  ],
+  "types": "./types/index.d.ts"
+}

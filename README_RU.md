@@ -1,70 +1,103 @@
 <div align="center">
 
-# Prompt Layer
+# Angry Switcher
 
-**Невидимый слой для Claude Code: превращает то, что ты набрал, в промпт, который нужен Claude.**
+**Матерись на Claude Code сколько хочешь. Он прочитает чистый текст.**
 
-[![License](https://img.shields.io/github/license/timoncool/prompt-layer?style=flat-square)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/timoncool/prompt-layer?style=flat-square)](https://github.com/timoncool/prompt-layer/stargazers)
-[![Last Commit](https://img.shields.io/github/last-commit/timoncool/prompt-layer?style=flat-square)](https://github.com/timoncool/prompt-layer/commits)
+[![License](https://img.shields.io/github/license/timoncool/angry-switcher?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/timoncool/angry-switcher?style=flat-square)](https://github.com/timoncool/angry-switcher/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/timoncool/angry-switcher?style=flat-square)](https://github.com/timoncool/angry-switcher/commits)
+[![Page](https://img.shields.io/badge/page-angry--switcher-4fc1e9?style=flat-square)](https://timoncool.github.io/angry-switcher/ru.html)
 
 **[English](README.md)** · **[Русский](README_RU.md)**
 
+<img src="docs/demo-ru.gif" alt="Angry Switcher в Claude Code: набираются злые промпты с опечатками, а Claude читает чистые" width="820">
+
 </div>
 
-Prompt Layer — плагин Claude Code, который переписывает каждый промпт через Claude Sonnet 5.5 на низком уровне размышлений до того, как его прочитает основная модель: убирает опечатки, транслит, не ту раскладку, мат и капс, ставит цель первой и сохраняет все пути, идентификаторы и числа символ в символ. Работает в терминале Claude Code и во вкладке Code в Claude Desktop, через твой логин Claude, без API-ключа.
+Angry Switcher — плагин для Claude Code, который переписывает каждый промпт до того, как его прочитает Claude. Опечатки, транслит, не та раскладка, мат и капс уходят; каждая просьба, вопрос, путь и число остаются. Как Punto Switcher для промптов, только умнее: он исправляет не раскладку, а всё сообщение.
+
+## С чего всё началось
+
+8 октября 2026 года Anthropic [обновила правила использования](https://techcrunch.com/2026/10/08/anthropic-changes-usage-policy-to-ban-model-abuse-and-election-interference/): систематическая бессмысленная жестокость к её моделям теперь под запретом. Многие матерятся на Claude Code, потому что кажется, что так работает лучше. Мы проверили исследования: тон почти не влияет на качество ответа, а в ругани нет диагностики. Поэтому между клавиатурой и Claude теперь стоит маленькая быстрая модель.
 
 ## Возможности
 
-- **Настоящая подмена** — Claude читает только переписанный текст, а не оригинал плюс копию (хук-функция `prompt.submit`)
-- **Быстро** — короткие и уже точные промпты уходят сразу по локальной проверке; в модель идут только «грязные»
-- **Чистит** — опечатки, транслит (`pochini test`), раскладку (`ghbdtn` → `привет`), мат, капс, воду
-- **Не искажает** — пути, идентификаторы, числа и цитаты обязаны сохраниться, иначе уходит оригинал; код и вставленный текст до модели не доходят
-- **Учится твоему стилю** — твои правила и одобренные образцы, подбор по типу задачи
-- **Показывает изменения** — карточка «ты написал / ушло» в переписке; `raw:` отправляет как есть
-- **Считает расходы** — токены из ответа API, деньги по счётчику `/cost` сессии, доля слоя в сессии, окна лимитов подписки
-- **Встроенный A/B** — половина промптов уходит как написано или на английском, сравнение того, что было дальше
+- **Чистит:** опечатки, транслит (`pochini test`), раскладку (`ghbdtn` → `привет`), мат, капс, воду
+- **Правит, а не пересказывает:** вопрос остаётся вопросом, просьба просьбой, ничего не добавляется
+- **Не теряет детали:** пути, идентификаторы, числа, код и цитаты обязаны сохраниться, иначе уходит оригинал
+- **Оригинал рядом:** сначала чистый текст, ниже твои слова в блоке `<original>`, и Claude знает, что при расхождении верить нужно оригиналу (`/angry original off` отправляет только чистый текст)
+- **Учится твоему стилю:** твои правила и одобренные образцы
+- **Считает расходы:** токены, деньги, доля в сессии, окна лимитов подписки
+- **A/B и тестовая комната:** сравнение с промптами как написано; прогон старых промптов без отправки
 
 ## Быстрый старт
 
 Вставь в Claude Code:
 
 ```text
-Install the Claude Code plugin Prompt Layer from https://github.com/timoncool/prompt-layer: run /plugin marketplace add timoncool/prompt-layer, then /plugin install prompt-layer@prompt-layer, then run /layer and show me its status. Remind me to restart Claude Code if the /layer command does not appear.
+Install the Claude Code plugin Angry Switcher from https://github.com/timoncool/angry-switcher: run /plugin marketplace add timoncool/angry-switcher, then /plugin install angry-switcher@angry-switcher, then run /angry and show me its status. Remind me to restart Claude Code if the /angry command does not appear.
 ```
 
 Или вручную:
 
 ```text
-/plugin marketplace add timoncool/prompt-layer
-/plugin install prompt-layer@prompt-layer
+/plugin marketplace add timoncool/angry-switcher
+/plugin install angry-switcher@angry-switcher
 ```
+
+**На подписке Claude никаких доплат.** Плагин работает через твой логин Claude, поэтому на Pro или Max его вызовы идут из той же подписки, а Sonnet на низком уровне размышлений настолько дешёвый, что это даже не ощущается: около $0.0015 за сообщение по ценам API.
 
 ## Команды
 
 | Команда | Что делает |
 |---|---|
-| `/layer` | статус, модель, траты за сутки |
-| `/layer on` / `off` | включить или выключить |
-| `/layer card on` / `off` | карточка «ты написал / ушло» |
-| `/layer lang keep` / `en` | оставлять язык или отправлять на английском (ответ на твоём) |
-| `/layer style <правила>` | твои правила переписывания |
-| `/layer good` / `fix <текст>` | сохранить последнее переписывание или свой исправленный вариант как образец |
-| `/layer examples` / `forget <n>` | список образцов, удалить образец |
-| `/layer ab raw` / `en` / `off` | A/B: половина промптов уходит как написано (или на английском), всё в лог |
-| `/layer report` | сравнение A/B |
-| `/layer cost` | сколько потратил слой: токены, деньги, доля в сессии, лимиты |
-| `/layer export` | лог в JSONL |
-| `/layer replay <файл>` | тестовая комната: прогнать промпты из JSONL через слой, ничего не отправляя; Claude может запустить её сам через инструмент плагина `replay` |
+| `/angry` | статус, модель, траты за сутки |
+| `/angry on` / `off` | включить или выключить |
+| `/angry original on` / `off` | прикладывать оригинал к чистому тексту (по умолчанию да) |
+| `/angry card on` / `off` | карточка «ты написал / ушло» |
+| `/angry lang keep` / `en` | оставлять язык или отправлять на английском (ответ на твоём) |
+| `/angry style <правила>` | твои правила переписывания |
+| `/angry good` / `fix <текст>` | сохранить последнее переписывание или свой исправленный вариант как образец |
+| `/angry examples` / `forget <n>` | список образцов, удалить образец |
+| `/angry ab raw` / `en` / `off` | A/B: половина промптов уходит как написано (или на английском), всё в лог |
+| `/angry report` | сравнение A/B |
+| `/angry cost` | токены, деньги, доля в сессии, лимиты |
+| `/angry export` | лог в JSONL |
+| `/angry replay <файл>` | тестовая комната: прогнать промпты из JSONL, ничего не отправляя; Claude может запустить её сам через инструмент плагина `replay` |
 | `raw:` в начале | отправить ровно как написано |
 
 ## Как это работает
 
 1. Локальная проверка без токенов решает, нужна ли работа: «мусор» любой длины или длинный размытый промпт.
-2. Блоки кода и вставленный текст заменяются метками.
-3. Sonnet 5.5 (низкий уровень размышлений) правит промпт как можно меньше, по правилам, составленным по текущему гайду Anthropic: причины вместо голых «никогда», XML-структура, разнообразные образцы.
+2. Блоки кода, вставленный текст и цитаты ответов заменяются метками.
+3. Claude Sonnet 5.5 на низком уровне размышлений правит промпт как можно меньше.
 4. Переписанное уходит, только если вернулись все метки и защищённые детали; иначе уходит оригинал с уведомлением.
-5. После трёх сбоев подряд слой встаёт на паузу на 10 минут, чтобы не тормозить работу.
+5. Под переписанным идёт твой оригинал, а строка в системном промпте Claude говорит верить ему при расхождении.
+6. После трёх сбоев подряд слой встаёт на паузу на 10 минут, чтобы не тормозить работу.
+
+## Что мы замерили
+
+Вручную, на настоящих сообщениях: каждому переписыванию ставилась доля смысла, которая дошла.
+
+| Набор | До правил минимальной правки | Сейчас |
+|---|---|---|
+| 29 сообщений из живого чата | 80% | 97-99% |
+| 40 более старых сообщений того же автора | | 96-98% |
+| 22 сообщения из другого чата | 81% | 97-100% |
+
+| Модель (40 промптов, 0-2 балла за каждый) | Оценка | Время на 40 | Искажений смысла |
+|---|---|---|---|
+| Haiku 5.5, low | 70 / 80 | 81 с | 1 |
+| **Sonnet 5.5, low** | **74 / 80** | **40 с** | **0** |
+| Haiku 5.5, xhigh | 74 / 80 | 252 с | 0 |
+
+Чистка одного сообщения занимает около 1,4 с (медиана). Один и тот же промпт от прогона к прогону выходит чуть по-разному, поэтому колебания на 1-2% это шум.
+
+**Плюсы:** чистые промпты; раскладка и транслит расшифровываются; детали сохраняются, иначе уходит оригинал; Claude видит оригинал и сам ловит ошибку чистки.
+**Минусы:** около 1,4 с на каждое очищенное сообщение; сильно искажённые опечатки иногда читаются неверно; с оригиналом рядом Claude всё равно видит мат; только Claude Code, не чат claude.ai.
+
+На какие исследования опирались: в среднем тон почти не влияет на точность ([arXiv 2508.00614](https://arxiv.org/abs/2508.00614)); эффект тона есть только в гуманитарных задачах, в STEM нет ([arXiv 2512.12812](https://arxiv.org/abs/2512.12812)); минимальные правки вредят намного реже агрессивных ([arXiv 2603.13301](https://arxiv.org/abs/2603.13301)).
 
 ## Благодарности
 
@@ -97,7 +130,7 @@ Install the Claude Code plugin Prompt Layer from https://github.com/timoncool/pr
 
 ## Star History
 
-<a href="https://github.com/timoncool/prompt-layer/stargazers">
+<a href="https://github.com/timoncool/angry-switcher/stargazers">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="docs/stars-dark.svg" />
    <source media="(prefers-color-scheme: light)" srcset="docs/stars-light.svg" />

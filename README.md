@@ -1,70 +1,103 @@
 <div align="center">
 
-# Prompt Layer
+# Angry Switcher
 
-**An invisible layer for Claude Code that turns what you type into the prompt Claude should get.**
+**Swear at Claude Code all you like. It reads the clean version.**
 
-[![License](https://img.shields.io/github/license/timoncool/prompt-layer?style=flat-square)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/timoncool/prompt-layer?style=flat-square)](https://github.com/timoncool/prompt-layer/stargazers)
-[![Last Commit](https://img.shields.io/github/last-commit/timoncool/prompt-layer?style=flat-square)](https://github.com/timoncool/prompt-layer/commits)
+[![License](https://img.shields.io/github/license/timoncool/angry-switcher?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/timoncool/angry-switcher?style=flat-square)](https://github.com/timoncool/angry-switcher/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/timoncool/angry-switcher?style=flat-square)](https://github.com/timoncool/angry-switcher/commits)
+[![Page](https://img.shields.io/badge/page-angry--switcher-4fc1e9?style=flat-square)](https://timoncool.github.io/angry-switcher/)
 
 **[English](README.md)** · **[Русский](README_RU.md)**
 
+<img src="docs/demo-en.gif" alt="Angry Switcher in Claude Code: angry, misspelled prompts are typed, and Claude reads clean ones" width="820">
+
 </div>
 
-Prompt Layer is a Claude Code plugin that rewrites every prompt with Claude Sonnet 5.5 at low effort before the main model reads it: typos, translit, the wrong keyboard layout, swearing and CAPS are cleaned, the goal goes first, and every path, identifier and number stays character for character. Works in the Claude Code terminal and the Code tab of Claude Desktop, uses your Claude login, no API key.
+Angry Switcher is a Claude Code plugin that rewrites every prompt before Claude reads it. Typos, translit, the wrong keyboard layout, swearing and caps go; every request, question, path and number stays. Think Grammarly for your prompts, except it fixes what you meant, not just the spelling.
+
+## How it started
+
+On October 8, 2026 Anthropic [updated its usage policy](https://techcrunch.com/2026/10/08/anthropic-changes-usage-policy-to-ban-model-abuse-and-election-interference/): repeated, pointless cruelty toward its models is now against the rules. Plenty of people swear at Claude Code because it feels like it works. We checked the research: tone barely changes answer quality, and a rant carries no diagnostics. So now a small, fast model sits between the keyboard and Claude.
 
 ## Features
 
-- **True replacement** — Claude reads only the rewrite, not your original plus a copy (built on the `prompt.submit` function hook)
-- **Fast** — a local check sends short or already precise prompts straight through; only messy ones go to the model
-- **Cleans the surface** — typos, translit (`pochini test`), wrong layout (`ghbdtn` → `привет`), swearing, CAPS, filler
-- **Keeps the meaning** — paths, identifiers, numbers and quotes must survive or the original is sent; code fences and pasted blocks never reach the model
-- **Learns your style** — your own rules plus approved examples, picked by task type
-- **Shows what changed** — a "you typed / sent" card in the transcript; `raw:` sends a message as typed
-- **Counts its cost** — tokens from the API, dollars from the session's `/cost` ledger, its share of the session, your plan's limit windows
-- **Built-in A/B** — send half the prompts as typed or in English and compare what happened next
+- **Cleans the surface:** typos, translit (`pochini test`), wrong layout (`ghbdtn` → `привет`), swearing, caps, filler
+- **Copy-edits, never rephrases:** questions stay questions, requests stay requests, nothing is added
+- **Keeps the details:** paths, identifiers, numbers, code and quotes must survive, or your original goes out as typed
+- **Your original rides along:** the clean text comes first, your own words follow in an `<original>` block, and Claude is told to trust the original where they differ (`/angry original off` to send the rewrite alone)
+- **Learns your style:** your own rules plus examples you approve
+- **Counts its cost:** tokens, dollars, share of the session, your plan's limit windows
+- **A/B and a test room:** compare against prompts sent as typed; replay old prompts without sending anything
 
 ## Quick Start
 
 Paste this into Claude Code:
 
 ```text
-Install the Claude Code plugin Prompt Layer from https://github.com/timoncool/prompt-layer: run /plugin marketplace add timoncool/prompt-layer, then /plugin install prompt-layer@prompt-layer, then run /layer and show me its status. Remind me to restart Claude Code if the /layer command does not appear.
+Install the Claude Code plugin Angry Switcher from https://github.com/timoncool/angry-switcher: run /plugin marketplace add timoncool/angry-switcher, then /plugin install angry-switcher@angry-switcher, then run /angry and show me its status. Remind me to restart Claude Code if the /angry command does not appear.
 ```
 
 Or by hand:
 
 ```text
-/plugin marketplace add timoncool/prompt-layer
-/plugin install prompt-layer@prompt-layer
+/plugin marketplace add timoncool/angry-switcher
+/plugin install angry-switcher@angry-switcher
 ```
+
+**On a Claude subscription it costs nothing extra.** The plugin runs on your own Claude login, so on Pro or Max its calls come out of the same plan, and Sonnet at low effort is cheap enough that you will not notice them: about $0.0015 per cleaned message at API prices.
 
 ## Usage
 
 | Command | What it does |
 |---|---|
-| `/layer` | status, model, today's spend |
-| `/layer on` / `off` | turn the layer on or off |
-| `/layer card on` / `off` | before/after card in the transcript |
-| `/layer lang keep` / `en` | keep your language or send prompts in English (answers stay in yours) |
-| `/layer style <rules>` | your own rewrite rules |
-| `/layer good` / `fix <text>` | save the last rewrite, or your corrected version, as an example |
-| `/layer examples` / `forget <n>` | list or delete saved examples |
-| `/layer ab raw` / `en` / `off` | A/B: half the prompts go as typed (or in English), all logged |
-| `/layer report` | A/B comparison |
-| `/layer cost` | what the layer spent: tokens, dollars, share of the session, limit windows |
-| `/layer export` | the log as JSONL |
-| `/layer replay <file>` | test room: run prompts from a JSONL file through the layer without sending anything; Claude can run it itself through the plugin's `replay` tool |
+| `/angry` | status, model, today's spend |
+| `/angry on` / `off` | turn it on or off |
+| `/angry original on` / `off` | attach your original to the clean text (on by default) |
+| `/angry card on` / `off` | before/after card in the transcript |
+| `/angry lang keep` / `en` | keep your language or send prompts in English (answers stay in yours) |
+| `/angry style <rules>` | your own rewrite rules |
+| `/angry good` / `fix <text>` | save the last rewrite, or your corrected version, as an example |
+| `/angry examples` / `forget <n>` | list or delete saved examples |
+| `/angry ab raw` / `en` / `off` | A/B: half the prompts go as typed (or in English), all logged |
+| `/angry report` | A/B comparison |
+| `/angry cost` | tokens, dollars, share of the session, limit windows |
+| `/angry export` | the log as JSONL |
+| `/angry replay <file>` | test room: run prompts from a JSONL file through it without sending anything; Claude can run it itself through the plugin's `replay` tool |
 | `raw:` at the start | send the message exactly as typed |
 
 ## How it works
 
 1. A local check (no tokens) decides whether the prompt needs work: noise of any length, or a long vague prompt.
-2. Code fences and pasted blocks are swapped for placeholders.
-3. Sonnet 5.5 (low effort) copy-edits the prompt with as few changes as possible, by rules written to Anthropic's current prompting guide: reasons instead of bare "never", XML structure, diverse examples.
+2. Code fences, pasted blocks and quoted replies are swapped for placeholders.
+3. Claude Sonnet 5.5 at low effort copy-edits the prompt with as few changes as possible.
 4. The rewrite is sent only if every placeholder and protected detail came back; otherwise your original goes out with a notice.
-5. After three failures in a row the layer pauses for ten minutes instead of slowing you down.
+5. Your original is attached under the rewrite, and a line in Claude's system prompt says to trust it where the two differ.
+6. After three failures in a row the layer pauses for ten minutes instead of slowing you down.
+
+## What we measured
+
+Scored by hand on real prompts: each rewrite gets the share of its meaning that survived.
+
+| Set | Before the minimal-edit rules | Now |
+|---|---|---|
+| 29 messages from one live chat | 80% | 97-99% |
+| 40 older prompts from the same author | | 96-98% |
+| 22 messages from another chat | 81% | 97-100% |
+
+| Model (40 prompts, 0-2 points each) | Score | Time for 40 | Meaning errors |
+|---|---|---|---|
+| Haiku 5.5, low effort | 70 / 80 | 81 s | 1 |
+| **Sonnet 5.5, low effort** | **74 / 80** | **40 s** | **0** |
+| Haiku 5.5, xhigh effort | 74 / 80 | 252 s | 0 |
+
+A cleaned message takes about 1.4 s (median). The same prompt comes out slightly differently from run to run, so swings of 1-2% are noise.
+
+**Good:** clean prompts; layout and translit decoded; details kept or the original sent; Claude sees your original and catches a misread.
+**Not so good:** about 1.4 s per cleaned message; garbled typos are still misread now and then; with the original attached Claude still sees the swearing; Claude Code only, not the claude.ai chat.
+
+Research we leaned on: tone barely changes accuracy on average ([arXiv 2508.00614](https://arxiv.org/abs/2508.00614)); tone effects only in the humanities, none in STEM ([arXiv 2512.12812](https://arxiv.org/abs/2512.12812)); minimal rewrites hurt far less than aggressive ones ([arXiv 2603.13301](https://arxiv.org/abs/2603.13301)).
 
 ## Acknowledgements
 
@@ -97,7 +130,7 @@ I build open-source software and do AI research. Most of what I create is free a
 
 ## Star History
 
-<a href="https://github.com/timoncool/prompt-layer/stargazers">
+<a href="https://github.com/timoncool/angry-switcher/stargazers">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="docs/stars-dark.svg" />
    <source media="(prefers-color-scheme: light)" srcset="docs/stars-light.svg" />

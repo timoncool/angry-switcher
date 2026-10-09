@@ -1,18 +1,31 @@
 {
-  "name": "prompt-layer",
-  "owner": { "name": "timoncool", "url": "https://github.com/timoncool" },
+  "name": "angry-switcher",
+  "owner": {
+    "name": "timoncool",
+    "url": "https://github.com/timoncool"
+  },
   "metadata": {
-    "description": "Prompt Layer: an invisible layer that cleans and sharpens every prompt you send to Claude Code."
+    "description": "Angry Switcher: swear at Claude Code all you like, it reads the clean version."
   },
   "plugins": [
     {
-      "name": "prompt-layer",
-      "source": "./plugins/prompt-layer",
-      "description": "Rewrites each prompt with a small Sonnet 5.5 call (low effort) before Claude reads it: typos, translit, wrong keyboard layout, swearing and CAPS cleaned, the goal stated first, details kept verbatim. Logs its own cost and A/B data.",
-      "version": "0.3.1",
-      "author": { "name": "timoncool" },
+      "name": "angry-switcher",
+      "source": "./plugins/angry-switcher",
+      "description": "Swear at Claude Code all you like: every prompt is cleaned before Claude reads it. Typos, translit, the wrong keyboard layout, swearing and CAPS go; the meaning, paths and numbers stay; your original rides along so nothing is lost.",
+      "version": "0.4.0",
+      "author": {
+        "name": "timoncool"
+      },
       "category": "productivity",
-      "keywords": ["prompting", "prompt-engineering", "rewrite", "haiku", "ab-test"]
+      "keywords": [
+        "prompting",
+        "prompt-engineering",
+        "rewrite",
+        "typos",
+        "profanity",
+        "keyboard-layout",
+        "ab-test"
+      ]
     }
   ]
 }

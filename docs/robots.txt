@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://timoncool.github.io/angry-switcher/sitemap.xml

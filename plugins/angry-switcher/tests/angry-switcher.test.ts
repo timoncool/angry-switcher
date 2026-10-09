@@ -233,7 +233,7 @@ test('a noisy prompt reaches the session rewritten by the model', async ($, on) 
   expect(seen).toBe('Последнее действие было ошибкой. Откати его сейчас и больше ничего не меняй.\n\n<original>\nЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ\n</original>')
 })
 
-test('/layer original off sends the rewrite alone', async ($, on) => {
+test('/angry original off sends the rewrite alone', async ($, on) => {
   let seen = ''
   mock.store(on, { original: false })
   mock.clock(on)
@@ -248,7 +248,7 @@ test('the system prompt tells the main model to trust the original', async ($, o
   mock.store(on)
   on('prompt.compose', () => ({ sections: [{ id: 'core', text: 'x', scope: 'shared' as const }] }))
   const r = await $.prompt.compose({ model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: [], tools: [], outputStyle: null, traits: [] })
-  expect(r.sections.map(s => s.id)).toEqual(['core', 'prompt-layer:original'])
+  expect(r.sections.map(s => s.id)).toEqual(['core', 'angry-switcher:original'])
   expect(r.sections.at(-1)!.text).toBe(ORIGINAL_NOTE)
 })
 
@@ -301,7 +301,7 @@ test('the log names the model each call asked for', async ($, on) => {
   on('model.complete', (_$, e) => { asked.push(e.model); return rewritten('Откати последнее действие.')() })
   on('prompt.submit', (_$, e) => ({ text: e.text }))
   await $.prompt.submit(submit('ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ'))
-  await $.command.run({ command: 'layer', args: 'model claude-haiku-5-5' } as never)
+  await $.command.run({ command: 'angry', args: 'model claude-haiku-5-5' } as never)
   await $.prompt.submit(submit('ну бля опять сломал всё откати'))
   expect(asked).toEqual(['claude-sonnet-5-5', 'claude-haiku-5-5'])
   expect((store.get('log') as Entry[]).map(e => e.model)).toEqual(['claude-sonnet-5-5', 'claude-haiku-5-5'])
@@ -315,7 +315,7 @@ test('the replay tool rewrites a file of prompts and writes the results beside i
   on('fs.read', () => ({ value: '{"typed":"ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ"}\n{"typed":"ну так запускай чего ждёшь дебил"}\n' }) as never)
   on('fs.write', (_$, e) => { wrote = { path: e.path, text: e.text }; return { value: undefined } as never })
   on('model.complete', rewritten('Откати последнее действие.'))
-  const r = await $.tool.call({ tool: 'mcp__prompt-layer__replay', path: 'D:/room/set.jsonl' } as never)
+  const r = await $.tool.call({ tool: 'mcp__angry-switcher__replay', path: 'D:/room/set.jsonl' } as never)
   expect(String(r.result)).toContain('[OK] 2 промптов прогнано')
   expect(wrote.path.replace(/\\/g, '/')).toBe('D:/room/set.out.jsonl')
   expect(wrote.text.trim().split('\n').map(l => JSON.parse(l).sent)).toEqual(['Откати последнее действие.', 'Откати последнее действие.'])
@@ -358,7 +358,7 @@ test('raw: goes out untouched with the prefix stripped', async ($, on) => {
   expect(calls).toBe(0)
 })
 
-test('/layer off sends prompts as typed', async ($, on) => {
+test('/angry off sends prompts as typed', async ($, on) => {
   let seen = ''
   mock.store(on, { enabled: false })
   mock.clock(on)
@@ -390,10 +390,10 @@ test('the transcript row shows what was typed and what was sent', async ($, on) 
   await $.prompt.submit(submit('ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ'))
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({
-      plugin: 'prompt-layer', surface, component: 'UserMessage',
+      plugin: 'angry-switcher', surface, component: 'UserMessage',
       props: { text: withOriginal(sent, 'ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ'), origin: { kind: 'composer' }, isExpanded: false },
     } as never)
-    expect(await ui.find({ type: 'Text', text: /Prompt Layer переписал промпт/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Angry Switcher переписал промпт/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /ты написал: ЕБАННЫЙ МУДИЛА/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /почищено: мат, капс/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^ушло: Последнее действие было ошибкой\. Откати его сейчас\.$/ })).toBeDefined()
