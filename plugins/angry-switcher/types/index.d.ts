@@ -1,7 +1,7 @@
 export type Genre = 'fix' | 'rollback' | 'investigate' | 'build' | 'research' | 'general'
 
 /** A pair the person approved or corrected, shown to the model as an example of their manner. */
-export type Example = { typed: string; sent: string; genre: Genre }
+export type Example = { typed: string; sent: string; genre: Genre; original?: string }
 
 /** One rewritten prompt, kept for the before/after card in the transcript: `sent` is the whole text that went out (with the original attached), `shown` the rewrite alone. */
 export type Card = { typed: string; sent: string; shown: string; noise: string[]; genre: Genre; english: boolean }

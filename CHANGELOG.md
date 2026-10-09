@@ -3,7 +3,7 @@
 ## 0.4.0 — 2026-10-09
 
 - Renamed from Prompt Layer to **Angry Switcher**: it was born out of its author swearing at Claude Code. The command is now `/angry`, the repository `timoncool/angry-switcher` (old links redirect).
-- Your original rides along: a cleaned prompt now ends with an `<original>` block holding your own words, and Claude is told that where the two differ in meaning, the original is what you meant. `/angry original off` sends the rewrite alone. Costs about a hundred tokens a message against a context of hundreds of thousands.
+- Your original rides along: a cleaned prompt now ends with an `<original>` block holding your own words with the swearing masked by the cleaning model (`б***`), and Claude is told that where the two differ in meaning, the original is what you meant. `/angry original off` sends the rewrite alone. Costs about a hundred tokens a message against a context of hundreds of thousands.
 - Grammatical gender is never guessed: an ambiguous typo keeps the form you typed.
 - Demo GIFs in both READMEs, made with HyperFrames from real rewrites.
 

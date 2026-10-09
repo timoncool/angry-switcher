@@ -23,7 +23,7 @@ const MAX_TOKENS = 4000
 const BREAKER_FAILS = 3
 const BREAKER_PAUSE_MS = 10 * 60_000
 const PERSON = new Set(['composer', 'bridge', 'sdk'])
-const ORIGINAL_NOTE = 'Angry Switcher cleans the user\'s prompts before you read them: typos, swearing, caps and the wrong keyboard layout are fixed by a smaller model. A cleaned prompt ends with an <original> block holding the user\'s own words. The cleaned text is the easier read; where it and the original differ in meaning, the original is what the user meant.'
+const ORIGINAL_NOTE = 'Angry Switcher cleans the user\'s prompts before you read them: typos, swearing, caps and the wrong keyboard layout are fixed by a smaller model. A cleaned prompt ends with an <original> block holding the user\'s own words, swear words cut to their first letter. The cleaned text is the easier read; where it and the original differ in meaning, the original is what the user meant.'
 const ROLLBACK = /(?:^|[^а-яё])(?:откат|откати|верни|вернуть|отмени)|\b(?:revert|undo|roll ?back)\b/iu
 const CORRECTION = /(?:^|[^а-яё])(?:не то|неправильно|неверно|опять|снова|переделай|не работает|сломал)|\b(?:wrong|not what|again|broke|redo)\b/iu
 
@@ -34,7 +34,7 @@ export function wantsLayer(text: string, noisy: boolean): boolean {
   return t.split(/\s+/).length >= MIN_WORDS && !isClearEnough(t)
 }
 
-export type Layered = { verdict: Verdict; sent: string; layered: string | null; note: string | null }
+export type Layered = { verdict: Verdict; sent: string; layered: string | null; note: string | null; masked?: string | null }
 
 /**
  * What goes out, given the model's reply or why there was none: a rewrite only when it is well formed,
@@ -54,7 +54,7 @@ export function decide(typed: string, blocks: readonly string[], reply: { ok: tr
   if (missing.length) return { verdict: 'guard', sent: typed, layered: restored, note: `переписывание потеряло ${missing.slice(0, 3).join(', ')}; ушло как написано.` }
   const added = addedTokens(reference, restored)
   if (added.length) return { verdict: 'guard', sent: typed, layered: restored, note: `переписывание добавило ${added.slice(0, 3).join(', ')}, которых не было; ушло как написано.` }
-  return { verdict: 'rewrite', sent: restored, layered: restored, note: null }
+  return { verdict: 'rewrite', sent: restored, layered: restored, note: null, masked: out.masked }
 }
 
 type Stat = { n: number; noisy: number; rollback: number; correction: number; turnMs: number[]; outTok: number[] }
@@ -220,9 +220,15 @@ async function replay($: EngineInterface, file: string): Promise<string> {
   return `[OK] ${items.length} промптов прогнано, ничего не отправлено: ${path}`
 }
 
-/** The rewrite followed by the user's own words, so the main model can catch a meaning the rewrite lost; code, pastes and quotes are already verbatim in the rewrite. */
-export function withOriginal(rewrite: string, own: string): string {
-  const original = own.replace(/⟦\d+⟧/g, '').replace(/\n{3,}/g, '\n\n').trim()
+const bare = (s: string) => s.replace(/⟦\d+⟧/g, '').replace(/\n{3,}/g, '\n\n').trim()
+
+/**
+ * The rewrite followed by the user's own words, so the main model can catch a meaning the rewrite lost; code, pastes and
+ * quotes are already verbatim in the rewrite. `masked` is the rewriting model's copy with the swearing cut, absent when
+ * there was none.
+ */
+export function withOriginal(rewrite: string, own: string, masked: string | null = null): string {
+  const original = bare(masked ?? own)
   return original ? `${rewrite}\n\n<original>\n${original}\n</original>` : rewrite
 }
 
@@ -374,7 +380,7 @@ export const register: Register = on => {
     }
 
     const original = (await get($, 'original', true)) !== false
-    const sent = arm === 'raw' ? typed : original && result.verdict === 'rewrite' ? withOriginal(result.sent, wrongLayout(own.text) ? decodeLayout(own.text) : own.text) : result.sent
+    const sent = arm === 'raw' ? typed : original && result.verdict === 'rewrite' ? withOriginal(result.sent, wrongLayout(own.text) ? decodeLayout(own.text) : own.text, result.masked ?? null) : result.sent
     const id = `${now}-${Math.random().toString(36).slice(2, 8)}`
     await appendLog($, { id, ts: now, arm, noise: found, genre, verdict: result.verdict, typed: clip(typed, 1000), layered: result.layered && clip(result.layered, 1000), sent: clip(sent, 1000), latencyMs: done - now, sessionId: await sessionId($), model, usage, costUsd })
     await update($, openA, () => id)

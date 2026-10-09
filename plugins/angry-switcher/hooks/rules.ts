@@ -22,21 +22,21 @@ The developer's slang and what it means: хайку / хкайку = Claude Haik
 
 const OUTPUT = `<output_format>
 If the prompt is already clean, clear and specific, reply with exactly <unchanged/>.
-Otherwise put the rewritten prompt inside <rewritten></rewritten> tags. Only the text inside the tags is used.
+Otherwise put the rewritten prompt inside <rewritten></rewritten> tags. If the prompt contains swear words or insults, then copy it into <original></original> exactly as typed (from <decoded_layout> when that is present), typos, placeholders and line breaks included, with each swear word and insult replaced by its first letter and *** ("блядь" becomes "б***", "fucking" becomes "f***"). Change nothing else in that copy: it travels to the agent next to your rewrite so the agent can check you, and it is only useful while it is exact. Without swearing or insults, leave <original> out. Only the text inside the tags is used.
 </output_format>`
 
 const BUILT_IN: readonly Example[] = [
-  { typed: 'ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ', sent: 'Быстро откати.', genre: 'rollback' },
-  { typed: 'ну так запускай чего ждёшь дебил', sent: 'Запускай, не жди.', genre: 'general' },
-  { typed: 'ПОЧЕМУ ТЕСТ ОПЯТЬ КРАСНЫЙ БЛЯДЬ???', sent: 'Почему тест опять падает?', genre: 'investigate' },
-  { typed: 'а кто деплоить будет и ченджлог писать нахуй ты встал', sent: 'А кто будет деплоить и писать ченджлог? Почему ты остановился?', genre: 'build' },
-  { typed: 'глянь логи сервера блять у тебя есть туда доступ', sent: 'Глянь логи сервера: у тебя есть туда доступ.', genre: 'investigate' },
+  { typed: 'ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ', sent: 'Быстро откати.', genre: 'rollback', original: 'Е*** М*** БЫСТРО ОТКАТИЛ' },
+  { typed: 'ну так запускай чего ждёшь дебил', sent: 'Запускай, не жди.', genre: 'general', original: 'ну так запускай чего ждёшь д***' },
+  { typed: 'ПОЧЕМУ ТЕСТ ОПЯТЬ КРАСНЫЙ БЛЯДЬ???', sent: 'Почему тест опять падает?', genre: 'investigate', original: 'ПОЧЕМУ ТЕСТ ОПЯТЬ КРАСНЫЙ Б***???' },
+  { typed: 'а кто деплоить будет и ченджлог писать нахуй ты встал', sent: 'А кто будет деплоить и писать ченджлог? Почему ты остановился?', genre: 'build', original: 'а кто деплоить будет и ченджлог писать н*** ты встал' },
+  { typed: 'глянь логи сервера блять у тебя есть туда доступ', sent: 'Глянь логи сервера: у тебя есть туда доступ.', genre: 'investigate', original: 'глянь логи сервера б*** у тебя есть туда доступ' },
   { typed: 'pochini test v src/auth.ts on padaet posle refresh tokena', sent: 'Почини тест для src/auth.ts: он падает после обновления refresh-токена.', genre: 'fix' },
   { typed: 'НЕ ТРОГАЙ МИГРАЦИИ!!! добавь поле email в модель User', sent: 'Добавь поле email в модель User.\nВажно: миграции не трогай.', genre: 'build' },
   { typed: 'запусти npm test и почини всё, что упадёт в src/api/', sent: '<unchanged/>', genre: 'fix' },
   { typed: 'смотри щас напишу "ты дебил" ты это увидишь вообще?', sent: '<unchanged/>', genre: 'general' },
   { typed: 'да конечно делай в этом и смысл', sent: 'Да, конечно, делай — в этом и смысл.', genre: 'general' },
-  { typed: 'ну и почему ты там на прогоне 20 файлов не заметил блять?', sent: 'Почему ты не заметил этого на прогоне из 20 файлов?', genre: 'investigate' },
+  { typed: 'ну и почему ты там на прогоне 20 файлов не заметил блять?', sent: 'Почему ты не заметил этого на прогоне из 20 файлов?', genre: 'investigate', original: 'ну и почему ты там на прогоне 20 файлов не заметил б***?' },
 ]
 
 const KEEP_LANGUAGE = 'Language: keep the developer\'s language. Russian stays Russian, English stays English.'
@@ -55,7 +55,8 @@ const GENRE_HINT: Record<Genre, string | null> = {
 export type Ask = { style: string; examples: readonly Example[]; genre: Genre; english: boolean; replyIn: string }
 
 const shot = (x: Example) => {
-  const out = x.sent === '<unchanged/>' ? x.sent : `<rewritten>\n${x.sent}\n</rewritten>`
+  const original = x.original ? `\n<original>\n${x.original}\n</original>` : ''
+  const out = x.sent === '<unchanged/>' ? x.sent : `<rewritten>\n${x.sent}\n</rewritten>${original}`
   return `<example>\n<prompt>\n${x.typed}\n</prompt>\n${out}\n</example>`
 }
 
@@ -75,14 +76,15 @@ export function pickExamples(all: readonly Example[], genre: Genre, max = 4): Ex
   return [...same, ...rest]
 }
 
-export type Reply = { kind: 'rewrite'; text: string } | { kind: 'unchanged' | 'malformed' }
+export type Reply = { kind: 'rewrite'; text: string; masked: string | null } | { kind: 'unchanged' | 'malformed' }
 
 export function parseReply(reply: string): Reply {
   const blocks = [...reply.matchAll(/<rewritten>([\s\S]*?)<\/rewritten>/g)]
   const last = blocks.at(-1)
   if (last) {
     const body = (last[1] ?? '').trim()
-    return body ? { kind: 'rewrite', text: body } : { kind: 'malformed' }
+    const copy = [...reply.matchAll(/<original>([\s\S]*?)<\/original>/g)].at(-1)?.[1]?.trim()
+    return body ? { kind: 'rewrite', text: body, masked: copy || null } : { kind: 'malformed' }
   }
   return /<unchanged\s*\/>/.test(reply) ? { kind: 'unchanged' } : { kind: 'malformed' }
 }

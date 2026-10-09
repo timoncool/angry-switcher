@@ -26,7 +26,7 @@ On October 8, 2026 Anthropic [updated its usage policy](https://techcrunch.com/2
 - **Cleans the surface:** typos, translit (`pochini test`), wrong layout (`ghbdtn` → `привет`), swearing, caps, filler
 - **Copy-edits, never rephrases:** questions stay questions, requests stay requests, nothing is added
 - **Keeps the details:** paths, identifiers, numbers, code and quotes must survive, or your original goes out as typed
-- **Your original rides along:** the clean text comes first, your own words follow in an `<original>` block, and Claude is told to trust the original where they differ (`/angry original off` to send the rewrite alone)
+- **Your original rides along:** the clean text comes first, your own words follow in an `<original>` block with swear words cut to their first letter, and Claude is told to trust the original where they differ (`/angry original off` to send the rewrite alone)
 - **Learns your style:** your own rules plus examples you approve
 - **Counts its cost:** tokens, dollars, share of the session, your plan's limit windows
 - **A/B and a test room:** compare against prompts sent as typed; replay old prompts without sending anything
@@ -73,7 +73,7 @@ Or by hand:
 2. Code fences, pasted blocks and quoted replies are swapped for placeholders.
 3. Claude Sonnet 5.5 at low effort copy-edits the prompt with as few changes as possible.
 4. The rewrite is sent only if every placeholder and protected detail came back; otherwise your original goes out with a notice.
-5. Your original is attached under the rewrite, and a line in Claude's system prompt says to trust it where the two differ.
+5. Your original is attached under the rewrite, with the swearing masked by the same model, and a line in Claude's system prompt says to trust it where the two differ.
 6. After three failures in a row the layer pauses for ten minutes instead of slowing you down.
 
 ## What we measured
@@ -95,7 +95,7 @@ Scored by hand on real prompts: each rewrite gets the share of its meaning that 
 A cleaned message takes about 1.4 s (median). The same prompt comes out slightly differently from run to run, so swings of 1-2% are noise.
 
 **Good:** clean prompts; layout and translit decoded; details kept or the original sent; Claude sees your original and catches a misread.
-**Not so good:** about 1.4 s per cleaned message; garbled typos are still misread now and then; with the original attached Claude still sees the swearing; Claude Code only, not the claude.ai chat.
+**Not so good:** about 1.4 s per cleaned message; garbled typos are still misread now and then; a swear word the cleaning model misses reaches Claude in the original; Claude Code only, not the claude.ai chat.
 
 Research we leaned on: tone barely changes accuracy on average ([arXiv 2508.00614](https://arxiv.org/abs/2508.00614)); tone effects only in the humanities, none in STEM ([arXiv 2512.12812](https://arxiv.org/abs/2512.12812)); minimal rewrites hurt far less than aggressive ones ([arXiv 2603.13301](https://arxiv.org/abs/2603.13301)).
 

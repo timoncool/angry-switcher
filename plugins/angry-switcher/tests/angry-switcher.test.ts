@@ -104,9 +104,10 @@ describe('missingTokens', () => {
 
 describe('parseReply', () => {
   test('reads the last <rewritten> block and <unchanged/>', async () => {
-    expect(parseReply('<rewritten>\nОткати последнее действие.\n</rewritten>')).toEqual({ kind: 'rewrite', text: 'Откати последнее действие.' })
+    expect(parseReply('<rewritten>\nОткати последнее действие.\n</rewritten>')).toEqual({ kind: 'rewrite', text: 'Откати последнее действие.', masked: null })
+    expect(parseReply('<rewritten>\nОткати.\n</rewritten>\n<original>\nну ты д*** б*** откати\n</original>')).toEqual({ kind: 'rewrite', text: 'Откати.', masked: 'ну ты д*** б*** откати' })
     expect(parseReply('<unchanged/>')).toEqual({ kind: 'unchanged' })
-    expect(parseReply('Хм, тут мат и капс, уберу.\n<rewritten>Откати.</rewritten>')).toEqual({ kind: 'rewrite', text: 'Откати.' })
+    expect(parseReply('Хм, тут мат и капс, уберу.\n<rewritten>Откати.</rewritten>')).toEqual({ kind: 'rewrite', text: 'Откати.', masked: null })
   })
   test('no tags or an empty block is never a rewrite', async () => {
     expect(parseReply('Конечно! Вот улучшенный промпт: X')).toEqual({ kind: 'malformed' })
@@ -153,7 +154,7 @@ describe('buildSystem and pickExamples', () => {
     expect(keep).toContain('This looks like a rollback')
     expect(keep).toContain('<style>\nкоротко\n</style>')
     expect(keep).toContain('<prompt>\nа\n</prompt>\n<rewritten>\nб\n</rewritten>')
-    expect(keep).toContain('<prompt>\nЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ\n</prompt>')
+    expect(keep).toContain('<prompt>\nЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ\n</prompt>\n<rewritten>\nБыстро откати.\n</rewritten>\n<original>\nЕ*** М*** БЫСТРО ОТКАТИЛ\n</original>')
     expect(keep).toContain('<prompt>\nзапусти npm test и почини всё, что упадёт в src/api/\n</prompt>\n<unchanged/>')
     expect(keep).toContain('When the developer talks about their own words in this prompt')
     expect(keep).toContain('a short reply stays a short reply')
@@ -231,6 +232,17 @@ test('a noisy prompt reaches the session rewritten by the model', async ($, on) 
   on('prompt.submit', (_$, e) => { seen = e.text; return { text: e.text } })
   await $.prompt.submit(submit('ЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ'))
   expect(seen).toBe('Последнее действие было ошибкой. Откати его сейчас и больше ничего не меняй.\n\n<original>\nЕБАННЫЙ МУДИЛА БЫСТРО ОТКАТИЛ\n</original>')
+})
+
+test('the rewriting model\'s masked copy is what rides along as the original', async ($, on) => {
+  let seen = ''
+  mock.store(on)
+  mock.clock(on)
+  mockSession(on)
+  on('model.complete', answer('<rewritten>\nОткати последнее действие.\n</rewritten>\n<original>\nну ты д*** б*** откати\n</original>'))
+  on('prompt.submit', (_$, e) => { seen = e.text; return { text: e.text } })
+  await $.prompt.submit(submit('ну ты долбеоб блдяь откати'))
+  expect(seen).toBe('Откати последнее действие.\n\n<original>\nну ты д*** б*** откати\n</original>')
 })
 
 test('/angry original off sends the rewrite alone', async ($, on) => {
