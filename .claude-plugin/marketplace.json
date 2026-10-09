@@ -9,7 +9,7 @@
       "name": "prompt-layer",
       "source": "./plugins/prompt-layer",
       "description": "Rewrites each prompt with a small Sonnet 5.5 call (low effort) before Claude reads it: typos, translit, wrong keyboard layout, swearing and CAPS cleaned, the goal stated first, details kept verbatim. Logs its own cost and A/B data.",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "author": { "name": "timoncool" },
       "category": "productivity",
       "keywords": ["prompting", "prompt-engineering", "rewrite", "haiku", "ab-test"]

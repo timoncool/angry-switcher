@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.1 — 2026-10-09
+
+- Rewrite as a minimal copy-edit: every word of the rewrite is one of the user's words, corrected. Tested on 91 real prompts from live chats: meaning kept in 98–100% against 80% for 0.3.0.
+- Kept as written: questions stay questions of the same kind, statements stay statements, requests stay requests, conditions stay conditions, "это" points where the user points, a short reply stays short.
+- A prompt about its own words ("я сейчас пишу ..., ты получил это?") goes out as typed.
+- Swearing with no reason given is dropped with nothing invented in its place; insults phrased as questions ("ты идиот?") are dropped too; filler ("ну так вот") is dropped; an opinion about a thing stays in plain words.
+- Built-in examples no longer turn questions into statements or invent complaints.
+- More slang: Serena, Cloudflare, Vercel, KV, "русским языком" as "plainly".
+- The log records the model of every call.
+- `replay` tool: Claude runs the test room itself, the same code as `/layer replay`.
+
 ## 0.3.0 — 2026-10-09
 
 - Default model is now `claude-sonnet-5-5` at low effort: on the 40-prompt replay Haiku 5.5 at low effort misread slang and garbled text (screenshots read as commits, WebRTC missed).

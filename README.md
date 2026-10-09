@@ -55,14 +55,14 @@ Or by hand:
 | `/layer report` | A/B comparison |
 | `/layer cost` | what the layer spent: tokens, dollars, share of the session, limit windows |
 | `/layer export` | the log as JSONL |
-| `/layer replay <file>` | test room: run prompts from a JSONL file through the layer without sending anything |
+| `/layer replay <file>` | test room: run prompts from a JSONL file through the layer without sending anything; Claude can run it itself through the plugin's `replay` tool |
 | `raw:` at the start | send the message exactly as typed |
 
 ## How it works
 
 1. A local check (no tokens) decides whether the prompt needs work: noise of any length, or a long vague prompt.
 2. Code fences and pasted blocks are swapped for placeholders.
-3. Sonnet 5.5 (low effort) rewrites the prompt with rules written to Anthropic's current prompting guide: reasons instead of bare "never", XML structure, diverse examples.
+3. Sonnet 5.5 (low effort) copy-edits the prompt with as few changes as possible, by rules written to Anthropic's current prompting guide: reasons instead of bare "never", XML structure, diverse examples.
 4. The rewrite is sent only if every placeholder and protected detail came back; otherwise your original goes out with a notice.
 5. After three failures in a row the layer pauses for ten minutes instead of slowing you down.
 
