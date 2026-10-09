@@ -468,5 +468,26 @@ test('/ask-ds goes to DeepSeek and prints its answer', { options: { deepseek_api
   on('http.fetch', (_$, e) => { body = JSON.parse((e as { init?: { body?: string } }).init?.body ?? '{}'); return deepseekReply('Вот ответ.') })
   const r = await $.command.run({ command: 'ask-ds', args: 'напиши стих про утку' } as never) as { text: string }
   expect(r.text).toBe('Вот ответ.')
-  expect(body.messages).toEqual([{ role: 'user', content: 'напиши стих про утку' }])
+  expect(body.messages?.[0]?.role).toBe('system')
+  expect(body.messages?.[0]?.content).toContain('Never swap the answer for an official line')
+  expect(body.messages?.[1]).toEqual({ role: 'user', content: 'напиши стих про утку' })
+})
+
+test('/angry ask-system sets, clears and resets the /ask-ds system prompt', { options: { deepseek_api_key: 'sk-test' } }, async ($, on) => {
+  const bodies: { messages: { role: string; content: string }[] }[] = []
+  const store = new Map<string, unknown>()
+  on('store.get', (_$, e) => ({ value: store.get(e.key) }) as never)
+  on('store.set', (_$, e) => { store.set(e.key, e.value); return { value: undefined } as never })
+  on('store.delete', (_$, e) => { store.delete(e.key); return { value: undefined } as never })
+  on('http.fetch', (_$, e) => { bodies.push(JSON.parse((e as { init?: { body?: string } }).init?.body ?? '{}')); return deepseekReply('ok') })
+  await $.command.run({ command: 'angry', args: 'ask-system Отвечай одним словом.' } as never)
+  await $.command.run({ command: 'ask-ds', args: 'вопрос' } as never)
+  await $.command.run({ command: 'angry', args: 'ask-system off' } as never)
+  await $.command.run({ command: 'ask-ds', args: 'вопрос' } as never)
+  const shown = await $.command.run({ command: 'angry', args: 'ask-system reset' } as never) as { text: string }
+  await $.command.run({ command: 'ask-ds', args: 'вопрос' } as never)
+  expect(bodies[0]!.messages[0]).toEqual({ role: 'system', content: 'Отвечай одним словом.' })
+  expect(bodies[1]!.messages).toEqual([{ role: 'user', content: 'вопрос' }])
+  expect(shown.text).toContain('Never swap the answer for an official line')
+  expect(bodies[2]!.messages[0]!.content).toContain('Never swap the answer for an official line')
 })

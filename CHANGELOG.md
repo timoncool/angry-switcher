@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2 — 2026-10-09
+
+- `/ask-ds` sends a system prompt for direct, complete answers with no filler, which never swaps the answer for an official line or a safer topic. `/angry ask-system <text>` replaces it, `reset` brings it back, `off` sends the question alone.
+
 ## 0.5.1 — 2026-10-09
 
 - `/ask` is now `/ask-ds` (DeepSeek): short, and it does not clash with other plugins' `/ask`.

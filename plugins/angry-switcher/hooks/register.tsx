@@ -22,6 +22,7 @@ const MODEL_ALIASES: Record<string, string> = { sonnet: DEFAULT_MODEL, deepseek:
 const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions'
 const NO_DEEPSEEK_KEY = 'нет ключа DeepSeek: задай его в терминале командой claude plugin configure angry-switcher@angry-switcher'
 const ASK_MAX_TOKENS = 8000
+const ASK_SYSTEM = 'You are a knowledgeable, plain-spoken assistant. Answer the question directly and completely: the answer first, then the details that matter. Be precise and concise: no filler, no moralizing, no disclaimers that do not change the facts. On historical and political topics, state what reliable sources document, with dates, numbers and names; where accounts differ, say who claims what. Never swap the answer for an official line or a different, safer topic. If you will not or cannot answer, say so plainly in one sentence. Reply in the language of the question.'
 const TIMEOUT_MS = 8_000
 const MAX_TOKENS = 4000
 const BREAKER_FAILS = 3
@@ -142,6 +143,7 @@ const HELP = [
   '/angry ab raw | en | off  A/B: половина промптов уходит как написано (raw) или на английском (en); всё в лог',
   '/angry model sonnet | deepseek  модель слоя: Sonnet по подписке (по умолчанию) или DeepSeek по своему ключу; можно и точный id',
   '/ask-ds <вопрос>        спросить DeepSeek напрямую, мимо Claude (нужен ключ DeepSeek)',
+  '/angry ask-system <текст>  свой системный промпт для /ask-ds; без текста показать, reset вернуть исходный, off без промпта',
   '/angry style <текст>    твои правила стиля; /angry style — показать, /angry style clear — стереть',
   '/angry good             сохранить последнее переписывание как образец',
   '/angry fix <текст>      исправить последнее переписывание и сохранить как образец',
@@ -303,7 +305,8 @@ export const register: Register = (on, options) => {
     if (!question) return { text: 'Напиши вопрос: /ask-ds <вопрос>. Ответит DeepSeek, Claude в этом не участвует.' }
     $.ui.status('Angry Switcher: спрашиваю DeepSeek…')
     try {
-      const r = await deepseek($, deepseekKey, { model: MODEL_ALIASES.deepseek!, prompt: question, maxTokens: ASK_MAX_TOKENS })
+      const system = await get($, 'askSystem', ASK_SYSTEM)
+      const r = await deepseek($, deepseekKey, { model: MODEL_ALIASES.deepseek!, system: system || undefined, prompt: question, maxTokens: ASK_MAX_TOKENS })
       return { text: r.ok ? r.text : `DeepSeek не ответил: ${r.reason}.` }
     } finally {
       $.ui.status(undefined)
@@ -332,6 +335,13 @@ export const register: Register = (on, options) => {
       const model = MODEL_ALIASES[flag] ?? tail
       if (model.startsWith('deepseek') && !deepseekKey) return { text: `Модель не переключена: ${NO_DEEPSEEK_KEY}.` }
       await $.store.set('model', model)
+    }
+    if (sub === 'ask-system') {
+      if (flag === 'reset') await $.store.delete('askSystem')
+      else if (flag === 'off') await $.store.set('askSystem', '')
+      else if (tail) await $.store.set('askSystem', tail)
+      const system = await get($, 'askSystem', ASK_SYSTEM)
+      return { text: system ? `Системный промпт /ask-ds:\n${system}` : 'У /ask-ds нет системного промпта: вопрос уходит как есть.' }
     }
     if (sub === 'style') {
       if (flag === 'clear') await $.store.set('style', '')
